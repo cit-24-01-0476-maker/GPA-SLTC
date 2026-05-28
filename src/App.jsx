@@ -17,7 +17,6 @@ import {
   Database, 
   Cpu, 
   CheckCircle2, 
-  Save, 
   AlertCircle, 
   Layers, 
   X, 
@@ -25,10 +24,13 @@ import {
   Palette,
   RotateCcw,
   Sun,
-  Moon
+  Moon,
+  ChevronDown,
+  ChevronUp,
+  Lock
 } from 'lucide-react';
 import { useGpa } from './context/GpaContext';
-import { CURRICULUM_DATABASE, GRADING_SYSTEM } from './data/curriculum';
+import { CURRICULUM_DATABASE, GRADING_SYSTEM, ELECTIVES_POOL } from './data/curriculum';
 
 // --- ROLLING COUNT COMPONENT ---
 // Uses requestAnimationFrame for a premium GPU-accelerated numerical counter transition
@@ -73,8 +75,6 @@ export default function App() {
     selectedDegree,
     handleDegreeChange,
     openSemesters,
-    addSemesterCard,
-    removeSemesterCard,
     grades,
     setCourseGrade,
     addedElectives,
@@ -89,6 +89,13 @@ export default function App() {
     setIsLightMode
   } = useGpa();
 
+  // Local state for Faculty Selection (Critical Premium Feature)
+  const [selectedFaculty, setSelectedFaculty] = useState("computing");
+
+  // Workspace Filters (dynamic isolation)
+  const [selectedYearFilter, setSelectedYearFilter] = useState("all");
+  const [selectedSemFilter, setSelectedSemFilter] = useState("all");
+
   // Local state for modals & user parameters
   const [activeElectiveSemester, setActiveElectiveSemester] = useState(null); // { year, semester }
   const [electiveSearch, setElectiveSearch] = useState("");
@@ -96,7 +103,41 @@ export default function App() {
   const [showClearToast, setShowClearToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  // Sync the context theme selection and light mode with document-level data attributes
+  // Manage accordion collapsible state for all semesters: { '1-1': true/false }
+  const [expandedSemesters, setExpandedSemesters] = useState({
+    '1-1': true, '1-2': true,
+    '2-1': true, '2-2': true,
+    '3-1': true, '3-2': true,
+    '4-1': true, '4-2': true
+  });
+
+  const toggleSemesterAccordion = (year, semester) => {
+    const key = `${year}-${semester}`;
+    setExpandedSemesters(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const expandAllSemesters = () => {
+    const list = {};
+    openSemesters.forEach(sem => {
+      list[`${sem.year}-${sem.semester}`] = true;
+    });
+    setExpandedSemesters(list);
+    triggerToast("All semesters expanded.");
+  };
+
+  const collapseAllSemesters = () => {
+    const list = {};
+    openSemesters.forEach(sem => {
+      list[`${sem.year}-${sem.semester}`] = false;
+    });
+    setExpandedSemesters(list);
+    triggerToast("All semesters collapsed.");
+  };
+
+  // Sync the context theme selection with document-level data attributes
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     document.body.setAttribute('data-theme', theme);
@@ -105,14 +146,34 @@ export default function App() {
     document.body.setAttribute('data-light', isLightMode);
   }, [theme, isLightMode]);
 
-  const activeDegreeData = CURRICULUM_DATABASE[selectedDegree] || CURRICULUM_DATABASE["software-engineering"];
+  // Handle fallback or filter bounds adjustments if degree changes
+  useEffect(() => {
+    if (selectedDegree === "software-engineering") {
+      handleDegreeChange("cyber-security");
+    }
+    
+    // Reset filters if they are out of bounds of the new degree duration
+    const maxYears = CURRICULUM_DATABASE[selectedDegree]?.durationYears || 4;
+    if (selectedYearFilter !== "all" && parseInt(selectedYearFilter) > maxYears) {
+      setSelectedYearFilter("all");
+    }
+  }, [selectedDegree, selectedYearFilter, handleDegreeChange]);
+
+  const activeDegreeData = CURRICULUM_DATABASE[selectedDegree] || CURRICULUM_DATABASE["cyber-security"];
+
+  // Filter open semesters based on the year & semester filter selections
+  const filteredSemesters = openSemesters.filter(sem => {
+    const matchesYear = selectedYearFilter === "all" || sem.year === parseInt(selectedYearFilter);
+    const matchesSem = selectedSemFilter === "all" || sem.semester === parseInt(selectedSemFilter);
+    return matchesYear && matchesSem;
+  });
 
   // --- ICON RESOLVER FOR DEGREES ---
   const getDegreeIcon = (id) => {
     switch (id) {
       case 'software-engineering': return <Code2 className="w-5 h-5 text-accent" />;
-      case 'cloud-computing': return <Cloud className="w-5 h-5 text-accent" />;
       case 'cyber-security': return <Shield className="w-5 h-5 text-accent" />;
+      case 'cloud-computing': return <Cloud className="w-5 h-5 text-accent" />;
       case 'data-science': return <Database className="w-5 h-5 text-accent" />;
       case 'applied-it': return <Cpu className="w-5 h-5 text-accent" />;
       default: return <GraduationCap className="w-5 h-5 text-accent" />;
@@ -161,7 +222,7 @@ export default function App() {
   };
 
   // --- GLOBAL (FINAL) GPA CALCULATIONS ---
-  // Calculates points across all open semesters in the workspace
+  // Calculates points across all open semesters in the workspace, strictly ignoring NGPA courses
   const getGlobalCalculations = () => {
     let grandPoints = 0;
     let grandCredits = 0;
@@ -199,12 +260,12 @@ export default function App() {
   const globalCalculations = getGlobalCalculations();
 
   // --- YEARLY GPA CALCULATIONS (YGPA) ---
-  // Calculates combined GPA for Semester 1 & 2 of a specific year
+  // Calculates combined GPA for Semester 1 & 2 of a specific year, ignoring NGPA
   const getYearlyGpa = (year) => {
     let yearPoints = 0;
     let yearCredits = 0;
 
-    // Filter semesters open for this year
+    // Filter semesters open for this year (usually Semester 1 and Semester 2)
     const openSemsThisYear = openSemesters.filter(s => s.year === year);
     
     openSemsThisYear.forEach(sem => {
@@ -289,7 +350,7 @@ export default function App() {
       };
     } else {
       // Find the closest letter grade that satisfies the required GP
-      let suggestedGrade = 'E (0-29)';
+      let suggestedGrade = 'E';
       let sortedGrades = Object.entries(GRADING_SYSTEM).sort((a, b) => a[1].gp - b[1].gp);
       for (let [gName, gData] of sortedGrades) {
         if (gData.gp >= requiredAverageGp) {
@@ -316,9 +377,9 @@ export default function App() {
 
   // Reset all local storage cache
   const handleResetCache = () => {
-    if (window.confirm("This will erase all course grades, electives, and active open semesters. Reset?")) {
+    if (window.confirm("This will erase all course grades, electives, and reset active open semesters. Reset?")) {
       clearAllCache();
-      triggerToast("System cash and calculations reset successfully.");
+      triggerToast("System calculation records and cache reset successfully.");
     }
   };
 
@@ -339,10 +400,14 @@ export default function App() {
   // Resolve available electives not already added
   const getFilteredElectives = () => {
     if (!activeElectiveSemester) return [];
-    const pool = activeDegreeData.years[activeElectiveSemester.year]?.[activeElectiveSemester.semester]?.electivesPool || [];
+    
+    const activeDegree = CURRICULUM_DATABASE[selectedDegree] || CURRICULUM_DATABASE["cyber-security"];
+    const semElectives = activeDegree?.years[activeElectiveSemester.year]?.[activeElectiveSemester.semester]?.electives;
+    
+    const pool = semElectives || ELECTIVES_POOL;
     const added = addedElectives[selectedDegree]?.[activeElectiveSemester.year]?.[activeElectiveSemester.semester] || [];
     
-    // Filter out electives already added
+    // Filter out electives already added to this semester
     const available = pool.filter(p => !added.some(a => a.code === p.code));
 
     // Search query filter
@@ -378,7 +443,7 @@ export default function App() {
               <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white flex items-center gap-2">
                 SLTC<span className="text-accent font-extrabold text-lg sm:text-xl px-2 py-0.5 bg-accent/10 border border-accent/20 rounded-md transition-accent">GPA</span>.CALCULATOR
               </h1>
-              <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">Sri Lanka Technology Campus • Academic Workspace v2.0</p>
+              <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">Sri Lanka Technology Campus • Academic Workspace v4.0</p>
             </div>
           </div>
 
@@ -455,255 +520,374 @@ export default function App() {
       {/* --- DESKTOP VIEWPORT LAYOUT --- */}
       <main className="w-full max-w-none px-4 sm:px-6 md:px-12 mt-4 grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
         
-        {/* --- LEFT SECTION: WORKSPACE CONTROL & SEMESTER CARDS PANEL (SPAN 2) --- */}
+        {/* --- LEFT SECTION: WORKSPACE CONTROL & EXPANDABLE SEMESTER CARDS PANEL (SPAN 2) --- */}
         <section className="lg:col-span-2 flex flex-col gap-6">
           
-          {/* Degree and Add Semester Toolbar Card */}
-          <div className="glass-panel rounded-2xl p-6 border-white/10 shadow-glass flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Layers className="w-5 h-5 text-accent transition-accent shrink-0" />
-              <div className="flex-1">
-                <label className="block text-[10px] font-black uppercase tracking-widest text-accent transition-accent">Degree Program</label>
-                <select 
-                  value={selectedDegree}
-                  onChange={(e) => handleDegreeChange(e.target.value)}
-                  className="bg-transparent border-0 font-extrabold text-white text-base focus:ring-0 focus:outline-none cursor-pointer p-0"
-                >
-                  {Object.entries(CURRICULUM_DATABASE).map(([key, value]) => (
-                    <option key={key} value={key} className="bg-navy-900 text-white font-semibold">
-                      {value.name}
-                    </option>
-                  ))}
-                </select>
+          {/* Faculty & Degree Selection Toolbar Card (CRITICAL REQUIREMENT) */}
+          <div className="glass-panel rounded-2xl p-6 border-white/10 shadow-glass flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-6 print:hidden">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+              
+              {/* Faculty Selector (Disabled for other faculties, only IT allowed) */}
+              <div className="glass-input rounded-xl p-3.5 flex items-center gap-3 border-white/5">
+                <Layers className="w-5 h-5 text-accent transition-accent shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <label className="block text-[9px] font-black uppercase tracking-widest text-accent transition-accent">Faculty</label>
+                  <select 
+                    value={selectedFaculty}
+                    onChange={(e) => setSelectedFaculty(e.target.value)}
+                    className="bg-transparent border-0 font-extrabold text-white text-xs sm:text-sm focus:ring-0 focus:outline-none cursor-pointer p-0 w-full"
+                  >
+                    <option value="computing" className="bg-navy-900 text-white font-semibold">Faculty of Computing and IT</option>
+                    <option value="engineering" disabled className="bg-navy-950 text-slate-500 font-semibold cursor-not-allowed">Faculty of Engineering (Locked)</option>
+                    <option value="business" disabled className="bg-navy-950 text-slate-500 font-semibold cursor-not-allowed">Faculty of Business (Locked)</option>
+                    <option value="science" disabled className="bg-navy-950 text-slate-500 font-semibold cursor-not-allowed">Faculty of Science (Locked)</option>
+                  </select>
+                </div>
               </div>
+
+              {/* Degree Selector (Software Engineering disabled as requested) */}
+              <div className="glass-input rounded-xl p-3.5 flex items-center gap-3 border-white/5">
+                {getDegreeIcon(selectedDegree)}
+                <div className="flex-1 min-w-0">
+                  <label className="block text-[9px] font-black uppercase tracking-widest text-accent transition-accent">Degree Program</label>
+                  <select 
+                    value={selectedDegree}
+                    onChange={(e) => handleDegreeChange(e.target.value)}
+                    className="bg-transparent border-0 font-extrabold text-white text-xs sm:text-sm focus:ring-0 focus:outline-none cursor-pointer p-0 w-full"
+                  >
+                    {Object.entries(CURRICULUM_DATABASE).map(([key, value]) => {
+                      const isLocked = key === "software-engineering";
+                      return (
+                        <option 
+                          key={key} 
+                          value={key} 
+                          disabled={isLocked}
+                          className={`bg-navy-900 font-semibold ${isLocked ? 'text-slate-500 cursor-not-allowed' : 'text-white'}`}
+                        >
+                          {value.name} ({value.durationYears} Years) {isLocked ? "• Locked" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
+
             </div>
 
-            {/* Quick semester adding controls */}
-            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-              <label className="text-xs font-bold text-slate-400">Open Semester:</label>
-              
-              <div className="flex gap-2">
-                {/* Year Selection Dropdown */}
-                <select 
-                  id="addYearSelect"
-                  className="glass-input rounded-xl px-3 py-1.5 text-xs font-bold text-white appearance-none cursor-pointer"
-                >
-                  {Object.keys(activeDegreeData.years).map(yr => (
-                    <option key={yr} value={yr} className="bg-navy-900 text-white font-bold">Year {yr}</option>
-                  ))}
-                </select>
-                
-                {/* Semester Selection Dropdown */}
-                <select 
-                  id="addSemSelect"
-                  className="glass-input rounded-xl px-3 py-1.5 text-xs font-bold text-white appearance-none cursor-pointer"
-                >
-                  <option value="1" className="bg-navy-900 text-white font-bold">Sem 1</option>
-                  <option value="2" className="bg-navy-900 text-white font-bold">Sem 2</option>
-                </select>
-
-                {/* Add Card trigger */}
-                <motion.button 
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    const yr = parseInt(document.getElementById("addYearSelect").value) || 1;
-                    const sem = parseInt(document.getElementById("addSemSelect").value) || 1;
-                    
-                    // Validate if semester exists in configuration before adding
-                    if (activeDegreeData.years[yr]?.[sem]) {
-                      addSemesterCard(yr, sem);
-                      triggerToast(`Year ${yr} Semester ${sem} added to workspace.`);
-                    } else {
-                      triggerToast(`Semester configuration unavailable for this degree.`);
-                    }
-                  }}
-                  className="flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-navy-950 hover:bg-accent-hover transition-accent shadow-accent-glow"
-                >
-                  <Plus className="w-4 h-4 shrink-0" />
-                  Add Board
-                </motion.button>
-              </div>
+            {/* Expand / Collapse All semester controllers */}
+            <div className="flex items-center gap-2 self-center xl:self-auto shrink-0">
+              <span className="text-xs font-bold text-slate-400 mr-1">Workspace:</span>
+              <button
+                onClick={expandAllSemesters}
+                className="flex items-center gap-1 py-2 px-3.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-white glass-panel hover:bg-white/5 border-white/5 hover:border-accent/20 transition-all"
+              >
+                Expand All
+              </button>
+              <button
+                onClick={collapseAllSemesters}
+                className="flex items-center gap-1 py-2 px-3.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-white glass-panel hover:bg-white/5 border-white/5 hover:border-accent/20 transition-all"
+              >
+                Collapse All
+              </button>
             </div>
           </div>
 
-          {/* OPEN ACTIVE SEMESTER CARDS */}
-          <div className="flex flex-col gap-8">
+          {/* Workspace Year & Semester selectors (Dynamic Filter Controls) */}
+          <div className="glass-panel rounded-2xl p-5 border-white/10 shadow-glass flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 print:hidden">
+            <div className="flex flex-wrap items-center gap-4">
+              
+              {/* Year Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase text-accent transition-accent tracking-wider">Year:</span>
+                <div className="glass-panel bg-white/5 rounded-xl p-1 flex items-center gap-1 border-white/5 text-[10px] font-bold">
+                  <button 
+                    onClick={() => setSelectedYearFilter("all")}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      selectedYearFilter === "all" ? "bg-accent text-navy-950 shadow-accent-glow font-black" : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    All Years
+                  </button>
+                  {Array.from({ length: activeDegreeData.durationYears || 4 }, (_, idx) => idx + 1).map(yr => (
+                    <button 
+                      key={yr}
+                      onClick={() => setSelectedYearFilter(yr.toString())}
+                      className={`px-3 py-1.5 rounded-lg transition-all ${
+                        selectedYearFilter === yr.toString() ? "bg-accent text-navy-950 shadow-accent-glow font-black" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      Year {yr}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Semester Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase text-accent transition-accent tracking-wider">Sem:</span>
+                <div className="glass-panel bg-white/5 rounded-xl p-1 flex items-center gap-1 border-white/5 text-[10px] font-bold">
+                  <button 
+                    onClick={() => setSelectedSemFilter("all")}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      selectedSemFilter === "all" ? "bg-accent text-navy-950 shadow-accent-glow font-black" : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    All Sems
+                  </button>
+                  <button 
+                    onClick={() => setSelectedSemFilter("1")}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      selectedSemFilter === "1" ? "bg-accent text-navy-950 shadow-accent-glow font-black" : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Sem 1
+                  </button>
+                  <button 
+                    onClick={() => setSelectedSemFilter("2")}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      selectedSemFilter === "2" ? "bg-accent text-navy-950 shadow-accent-glow font-black" : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Sem 2
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Indicator of how many semesters are showing */}
+            <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wide flex items-center gap-1.5 justify-end">
+              <span className="w-2 h-2 rounded-full bg-accent animate-pulse-gold shrink-0"></span>
+              Showing {filteredSemesters.length} of {openSemesters.length} Semesters
+            </div>
+          </div>
+
+          {/* OPEN ACTIVE SEMESTER ACCORDIONS DECK */}
+          <div className="flex flex-col gap-5">
             <AnimatePresence mode="popLayout">
-              {openSemesters.map((sem, index) => {
+              {filteredSemesters.map((sem) => {
+                const accordionKey = `${sem.year}-${sem.semester}`;
+                const isExpanded = expandedSemesters[accordionKey];
                 const stats = getSemesterCalculations(sem.year, sem.semester);
                 const modules = getSemesterModules(sem.year, sem.semester);
+                
+                // Allow electives on Year 3 and Year 4
                 const isYear3Or4 = sem.year === 3 || sem.year === 4;
-                const isComputing = selectedDegree !== "applied-it";
 
                 return (
                   <motion.div
                     key={`${selectedDegree}-${sem.year}-${sem.semester}`}
-                    initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                    layout
+                    initial={{ opacity: 0, y: 20, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9, y: -30 }}
-                    transition={{ duration: 0.35, ease: 'easeOut' }}
-                    className="glass-panel rounded-2xl p-6 border-white/10 shadow-glass relative overflow-hidden"
+                    exit={{ opacity: 0, scale: 0.95, y: -20 }}
+                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                    className="glass-panel rounded-2xl p-5 border-white/10 shadow-glass relative overflow-hidden transition-all"
                   >
                     
-                    {/* Semester Header toolbar */}
-                    <div className="flex justify-between items-center border-b border-white/5 pb-4 mb-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <BookOpen className="w-5 h-5 text-accent transition-accent" />
+                    {/* Collapsible Card Header toolbar */}
+                    <div 
+                      onClick={() => toggleSemesterAccordion(sem.year, sem.semester)}
+                      className="flex justify-between items-center cursor-pointer select-none"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-accent/10 border border-accent/20 text-accent transition-accent">
+                          <BookOpen className="w-4 h-4" />
+                        </div>
+                        <div>
                           <h3 className="text-base font-bold text-white tracking-wide">
                             Year {sem.year} Semester {sem.semester}
                           </h3>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mt-0.5">
+                            Level {sem.year} • {modules.length} Modules Pre-loaded
+                          </p>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-0.5 uppercase tracking-wider font-semibold">
-                          Semester Card • {modules.length} Modules Active
-                        </p>
                       </div>
 
-                      {/* Header utilities */}
-                      <div className="flex items-center gap-2 print:hidden">
-                        <button
-                          onClick={() => resetSemester(sem.year, sem.semester)}
-                          className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-[10px] font-black text-slate-400 hover:text-slate-200 glass-panel border-white/5"
-                          title="Reset Semester Grades & Electives"
-                        >
-                          <RefreshCw className="w-3 h-3 text-accent transition-accent" />
-                          Reset
-                        </button>
-                        
-                        {/* Remove sem card from viewport */}
-                        {openSemesters.length > 1 && (
-                          <button
-                            onClick={() => removeSemesterCard(sem.year, sem.semester)}
-                            className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors"
-                            title="Close Card"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Semester Modules list table */}
-                    <div className="overflow-x-auto rounded-xl border border-white/5 mb-4">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-navy-950/60 border-b border-white/5 text-[10px] uppercase tracking-widest font-extrabold text-accent transition-accent">
-                            <th className="py-3.5 px-4">Code</th>
-                            <th className="py-3.5 px-4">Module Name</th>
-                            <th className="py-3.5 px-4 text-center">Credits</th>
-                            <th className="py-3.5 px-4 text-center">Type</th>
-                            <th className="py-3.5 px-4 text-center">Grade</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5 text-xs font-medium">
-                          {modules.map((mod) => {
-                            const gradeKey = `${mod.code}-${mod.name}`;
-                            const selectedGrade = grades[selectedDegree]?.[sem.year]?.[sem.semester]?.[gradeKey] || "";
-                            
-                            return (
-                              <tr 
-                                key={gradeKey}
-                                className={`transition-colors duration-150 ${
-                                  selectedGrade ? 'bg-accent/5 hover:bg-accent/10' : 'hover:bg-white/[0.01]'
-                                }`}
-                              >
-                                <td className="py-3.5 px-4 font-mono font-bold text-slate-300">
-                                  {mod.code}
-                                </td>
-                                <td className="py-3.5 px-4 text-white font-bold flex items-center justify-between">
-                                  <span>{mod.name}</span>
-                                  {/* Delete button if user added it as an Elective */}
-                                  {mod.isElective && (
-                                    <button 
-                                      onClick={() => removeElective(sem.year, sem.semester, mod.code)}
-                                      className="text-red-400 hover:text-red-300 ml-2 font-bold opacity-60 hover:opacity-100 transition-opacity print:hidden"
-                                    >
-                                      Delete
-                                    </button>
-                                  )}
-                                </td>
-                                <td className="py-3.5 px-4 text-center font-extrabold text-slate-300">
-                                  {mod.credits}
-                                </td>
-                                <td className="py-3.5 px-4 text-center">
-                                  <span className={`text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded border ${
-                                    mod.category === 'GPA'
-                                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                  }`}>
-                                    {mod.category}
-                                  </span>
-                                </td>
-                                <td className="py-2.5 px-4">
-                                  <div className="flex justify-center">
-                                    <select
-                                      value={selectedGrade}
-                                      onChange={(e) => setCourseGrade(sem.year, sem.semester, mod.code, mod.name, e.target.value)}
-                                      className={`w-32 py-1.5 px-2 rounded-lg text-[11px] font-black appearance-none text-center cursor-pointer transition-accent border ${
-                                        selectedGrade
-                                          ? 'bg-accent text-navy-950 border-accent font-black shadow-sm'
-                                          : 'glass-input text-slate-400 hover:border-white/20'
-                                      }`}
-                                    >
-                                      <option value="" className="bg-navy-900 text-slate-400 font-bold">- Grade -</option>
-                                      {Object.entries(GRADING_SYSTEM).map(([g, details]) => (
-                                        <option key={g} value={g} className="bg-navy-900 text-white font-bold">
-                                          {g} ({details.range})
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Card Footer: Add elective (for Year 3 & 4) & Semester Stat breakdown */}
-                    <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mt-2">
-                      
-                      {/* Electives adder for Computing Year 3 and Year 4 */}
-                      {isComputing && isYear3Or4 ? (
-                        <motion.button 
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleOpenElectiveModal(sem.year, sem.semester)}
-                          className="px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-accent/30 text-accent hover:bg-accent/10 transition-accent flex items-center justify-center gap-1.5 print:hidden"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          Add Elective
-                        </motion.button>
-                      ) : (
-                        <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide flex items-center gap-1">
-                          <Info className="w-3.5 h-3.5 text-accent/40 transition-accent" />
-                          Core Semester (Pre-defined Curriculum)
-                        </div>
-                      )}
-
-                      {/* Stat summary pills */}
-                      <div className="flex gap-2 justify-end font-extrabold text-xs">
-                        <div className="glass-panel px-3 py-1.5 rounded-lg border-white/5 text-slate-300">
-                          SGPA Credits: <span className="text-white font-black">{stats.totalCredits}</span>
-                        </div>
-                        <div className="glass-panel px-3 py-1.5 rounded-lg border-white/5 text-slate-300 flex items-center gap-1">
-                          SGPA: 
-                          <span className="text-accent transition-accent font-black text-sm">
-                            {stats.sgpa.toFixed(2)}
+                      <div className="flex items-center gap-3">
+                        {/* Mini pill summary (always shown) */}
+                        <div className="hidden sm:flex gap-1.5 text-[10px] font-black uppercase">
+                          <span className="glass-panel px-2.5 py-1 rounded border-white/5 text-slate-400">
+                            Credits: {stats.totalCredits}
+                          </span>
+                          <span className="glass-panel px-2.5 py-1 rounded border-white/5 text-accent transition-accent">
+                            SGPA: {stats.sgpa.toFixed(2)}
                           </span>
                         </div>
+
+                        {/* Accordion Toggle Icon */}
+                        <div className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 transition-colors">
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Animated Collapsible Body Container */}
+                    <AnimatePresence initial={false}>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                          animate={{ height: 'auto', opacity: 1, marginTop: 16 }}
+                          exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                          transition={{ duration: 0.25, ease: 'easeInOut' }}
+                          className="overflow-hidden"
+                        >
+                          
+                          {/* Inner divider */}
+                          <div className="w-full border-t border-white/5 pt-4 mb-4"></div>
+
+                          {/* Semester Modules list table */}
+                          <div className="overflow-x-auto rounded-xl border border-white/5 mb-4">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-navy-950/60 border-b border-white/5 text-[9px] uppercase tracking-widest font-extrabold text-accent transition-accent">
+                                  <th className="py-3 px-4">Code</th>
+                                  <th className="py-3 px-4">Module Name</th>
+                                  <th className="py-3 px-4 text-center">Credits</th>
+                                  <th className="py-3 px-4 text-center">Type</th>
+                                  <th className="py-3 px-4 text-center">Grade Achieved</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5 text-xs font-semibold">
+                                {modules.map((mod) => {
+                                  const gradeKey = `${mod.code}-${mod.name}`;
+                                  const selectedGrade = grades[selectedDegree]?.[sem.year]?.[sem.semester]?.[gradeKey] || "";
+                                  const isNgpa = mod.category === 'NGPA';
+                                  
+                                  return (
+                                    <tr 
+                                      key={gradeKey}
+                                      className={`transition-colors duration-150 ${
+                                        selectedGrade ? 'bg-accent/5 hover:bg-accent/10' : 'hover:bg-white/[0.01]'
+                                      }`}
+                                    >
+                                      <td className="py-3 px-4 font-mono font-bold text-slate-300">
+                                        {mod.code}
+                                      </td>
+                                      <td className="py-3 px-4 text-white font-bold flex items-center justify-between">
+                                        <span>{mod.name}</span>
+                                        {/* Remove button if added as elective */}
+                                        {mod.isElective && (
+                                          <button 
+                                            onClick={() => removeElective(sem.year, sem.semester, mod.code)}
+                                            className="text-red-400 hover:text-red-300 ml-2 font-bold opacity-60 hover:opacity-100 transition-opacity print:hidden"
+                                          >
+                                            Remove
+                                          </button>
+                                        )}
+                                      </td>
+                                      <td className="py-3 px-4 text-center font-extrabold text-slate-300">
+                                        {mod.credits}
+                                      </td>
+                                      <td className="py-3 px-4 text-center">
+                                        <span className={`text-[8.5px] font-black tracking-widest uppercase px-2 py-0.5 rounded border ${
+                                          isNgpa
+                                            ? 'bg-red-500/10 text-red-400 border-red-500/20 animate-pulse-light'
+                                            : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                        }`}>
+                                          {mod.category}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-4">
+                                        <div className="flex justify-center">
+                                          <select
+                                            value={selectedGrade}
+                                            onChange={(e) => setCourseGrade(sem.year, sem.semester, mod.code, mod.name, e.target.value)}
+                                            className={`w-36 py-1.5 px-2 rounded-lg text-[10px] font-black appearance-none text-center cursor-pointer transition-accent border ${
+                                              selectedGrade
+                                                ? 'bg-accent text-navy-950 border-accent font-black shadow-sm font-sans'
+                                                : 'glass-input text-slate-400 hover:border-white/20'
+                                            }`}
+                                          >
+                                            <option value="" className="bg-navy-900 text-slate-400 font-bold">- Select Grade -</option>
+                                            {Object.entries(GRADING_SYSTEM).map(([g, details]) => (
+                                              <option key={g} value={g} className="bg-navy-900 text-white font-bold">
+                                                {g} (GP: {details.gp.toFixed(1)})
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+
+                                {modules.length === 0 && (
+                                  <tr>
+                                    <td colSpan="5" className="py-8 text-center text-slate-500 italic">
+                                      Empty semester. Click "+ Add Course" below to register modules.
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Collapsible Card Footer: Add elective & Semester reset utilities */}
+                          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mt-2">
+                            
+                            {/* Electives adder for Year 3 and Year 4 */}
+                            {isYear3Or4 ? (
+                              <motion.button 
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => handleOpenElectiveModal(sem.year, sem.semester)}
+                                className="px-3.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-accent/30 text-accent hover:bg-accent/10 transition-accent flex items-center justify-center gap-1.5 print:hidden"
+                              >
+                                <Plus className="w-3.5 h-3.5 shrink-0" />
+                                Add Course
+                              </motion.button>
+                            ) : (
+                              <div className="text-[9px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-1">
+                                <Info className="w-3.5 h-3.5 text-accent/40 transition-accent" />
+                                Fixed Core Syllabus
+                              </div>
+                            )}
+
+                            {/* Reset & Summary info */}
+                            <div className="flex items-center gap-3 justify-end font-extrabold text-xs">
+                              <button
+                                onClick={() => resetSemester(sem.year, sem.semester)}
+                                className="flex items-center gap-1 py-1 px-2.5 rounded-lg text-[9px] font-black text-slate-400 hover:text-slate-200 glass-panel border-white/5 print:hidden"
+                              >
+                                <RefreshCw className="w-3 h-3 text-accent" />
+                                Reset Grades
+                              </button>
+                              <div className="glass-panel px-3 py-1 rounded-lg border-white/5 text-slate-300">
+                                Credits: <span className="text-white font-black">{stats.totalCredits}</span>
+                              </div>
+                              <div className="glass-panel px-3 py-1 rounded-lg border-white/5 text-slate-300">
+                                SGPA: <span className="text-accent transition-accent font-black text-sm">{stats.sgpa.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                   </motion.div>
                 );
               })}
+
+              {filteredSemesters.length === 0 && (
+                <div className="glass-panel rounded-2xl p-10 text-center text-slate-400 border-white/10 shadow-glass flex flex-col items-center gap-3">
+                  <Info className="w-8 h-8 text-accent animate-bounce-light" />
+                  <p className="font-extrabold text-sm uppercase tracking-wide">No Semesters Match Current Workspace Filters</p>
+                  <button 
+                    onClick={() => { setSelectedYearFilter("all"); setSelectedSemFilter("all"); }}
+                    className="mt-2 px-4 py-2 bg-accent text-navy-950 font-black uppercase tracking-wider text-[10px] rounded-xl hover:bg-accent-hover transition-accent shadow-accent-glow"
+                  >
+                    Reset Workspace Filters
+                  </button>
+                </div>
+              )}
             </AnimatePresence>
           </div>
         </section>
 
         {/* --- RIGHT SECTION: STICKY GLOBAL TOTALS DASHBOARD (SPAN 1) --- */}
         <section className="lg:col-span-1 print:col-span-3">
-          <div className="lg:sticky lg:top-8 flex flex-col gap-8">
+          <div className="lg:sticky lg:top-8 flex flex-col gap-6">
             
             {/* STICKY CARD: Final Cumulative Board Dashboard */}
             <div className="glass-panel rounded-2xl p-6 border-white/10 shadow-glass overflow-hidden relative">
@@ -711,7 +895,7 @@ export default function App() {
               
               <div className="flex items-center gap-2 mb-6 border-b border-white/5 pb-3">
                 <TrendingUp className="w-5 h-5 text-accent transition-accent" />
-                <h3 className="text-lg font-bold text-white tracking-wide">Final Dashboard</h3>
+                <h3 className="text-base font-black text-white tracking-widest uppercase">Global Dashboard</h3>
               </div>
 
               {/* Master Circular ring and large digits */}
@@ -738,7 +922,7 @@ export default function App() {
                   
                   {/* Digital text counters inside circle */}
                   <div className="absolute flex flex-col items-center justify-center">
-                    <span className="text-4xl font-extrabold text-white tracking-tight leading-none gold-text-glow">
+                    <span className="text-4xl font-extrabold text-white tracking-tight leading-none gold-text-glow font-mono">
                       <RollingCount value={globalCalculations.fgpa} />
                     </span>
                     <span className="text-[10px] text-accent font-extrabold tracking-widest uppercase mt-1 transition-accent">
@@ -748,7 +932,7 @@ export default function App() {
                 </div>
 
                 <div className="text-[10px] text-slate-500 font-extrabold uppercase mt-2">
-                  Total points earned: {globalCalculations.totalPoints.toFixed(1)}
+                  Total Points Earned: {globalCalculations.totalPoints.toFixed(1)}
                 </div>
               </div>
 
@@ -766,24 +950,21 @@ export default function App() {
                 </div>
               </div>
 
-              {/* YEARLY GPA METRICS (YGPA ACCORDION BOX) */}
+              {/* YEARLY GPA METRICS (YGPA BOX - DYNAMIC DURATION) */}
               <div className="flex flex-col gap-2 mb-6 border-t border-white/5 pt-4">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-accent mb-1 transition-accent">
                   Combined Yearly GPA (YGPA)
                 </h4>
                 
-                {[1, 2, 3, 4].map(yr => {
+                {Array.from({ length: activeDegreeData.durationYears || 4 }, (_, idx) => idx + 1).map(yr => {
                   const data = getYearlyGpa(yr);
-                  // Only display years that have open semesters
-                  const yearHasSems = openSemesters.some(s => s.year === yr);
-                  if (!yearHasSems) return null;
 
                   return (
                     <div key={yr} className="glass-input border-white/5 rounded-xl p-3 flex justify-between items-center text-xs">
-                      <span className="font-bold text-slate-300">Year {yr} Cumulative</span>
+                      <span className="font-bold text-slate-300">Level {yr} (Year {yr}) Cumulative</span>
                       <div className="text-right">
                         <span className="font-extrabold text-white block">{data.ygpa.toFixed(2)}</span>
-                        <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">{data.credits} Credits</span>
+                        <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">{data.credits} GPA Credits</span>
                       </div>
                     </div>
                   );
@@ -792,8 +973,8 @@ export default function App() {
 
               {/* Formula reference label */}
               <div className="text-[10px] bg-navy-950/40 p-3 rounded-xl border border-white/5 font-mono text-slate-400 leading-relaxed">
-                <span className="text-accent font-bold block mb-0.5 transition-accent">Global Dashboard Formula:</span>
-                FGPA = Sum of (Grade Point * Credits) across all open semesters divided by total credits.
+                <span className="text-accent font-bold block mb-0.5 transition-accent">Dynamic Board Formula:</span>
+                Calculates cumulative GPA across active semesters. Modules marked as <code className="text-red-400 font-bold">category: "NGPA"</code> (e.g. Capstone Project, Industrial Training) are strictly excluded from mathematical calculations.
               </div>
             </div>
 
@@ -805,7 +986,7 @@ export default function App() {
               </div>
 
               <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">
-                Target your graduation honors class! Input your target final GPA for all open semesters.
+                Enter your target graduation CGPA and discover the exact average grade required across your remaining ungraded modules.
               </p>
 
               <div className="flex items-center gap-3 mb-4">
@@ -879,9 +1060,9 @@ export default function App() {
               <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3 pr-8">
                 <Sparkles className="w-5 h-5 text-accent transition-accent" />
                 <div>
-                  <h3 className="text-base font-bold text-white">Select Elective Course</h3>
+                  <h3 className="text-base font-bold text-white">Select Course Module</h3>
                   <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold mt-0.5">
-                    Year {activeElectiveSemester.year} Sem {activeElectiveSemester.semester}Pool
+                    Year {activeElectiveSemester.year} Sem {activeElectiveSemester.semester} Elective Pool
                   </p>
                 </div>
               </div>
@@ -958,9 +1139,10 @@ export default function App() {
             <p className="text-accent/60 font-serif italic text-sm tracking-wide transition-accent">
               "Non scholae sed vitae discimus"
             </p>
-            <p className="text-[10px] tracking-widest font-black uppercase text-slate-600">
-              Powered by <span className="text-white hover:text-accent transition-accent cursor-pointer">OSKA.TECH</span>
-            </p>
+            {/* Powered by OSKA.TECH badge */}
+            <div className="mt-1 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent font-bold uppercase tracking-widest text-[9px] transition-accent cursor-pointer shadow-accent-glow hover:bg-accent hover:text-navy-950">
+              Powered by OSKA.TECH
+            </div>
           </div>
           <p>Official Platform • Sri Lanka Technology Campus</p>
         </div>

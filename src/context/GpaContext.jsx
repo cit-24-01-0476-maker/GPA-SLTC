@@ -3,38 +3,50 @@ import { CURRICULUM_DATABASE } from '../data/curriculum';
 
 const GpaContext = createContext();
 
+export const getSemestersForDegree = (degreeId) => {
+  const degreeData = CURRICULUM_DATABASE[degreeId];
+  const duration = degreeData?.durationYears || 4;
+  const list = [];
+  for (let y = 1; y <= duration; y++) {
+    list.push({ year: y, semester: 1 });
+    list.push({ year: y, semester: 2 });
+  }
+  return list;
+};
+
 export function GpaProvider({ children }) {
-  // Ultra-defensive selectedDegree loader with key verification
+  // Centralized selectedDegree with Cyber Security default
   const [selectedDegree, setSelectedDegree] = useState(() => {
     try {
-      const saved = localStorage.getItem("sltc_gpa_degree");
-      return (saved && CURRICULUM_DATABASE[saved]) ? saved : "software-engineering";
+      const saved = localStorage.getItem("sltc_gpa_degree_v3");
+      return (saved && CURRICULUM_DATABASE[saved]) ? saved : "cyber-security";
     } catch (e) {
-      return "software-engineering";
+      return "cyber-security";
     }
   });
 
   // Track which semesters are actively added and open on the screen
-  // Format: [ { year: 1, semester: 1 }, { year: 1, semester: 2 } ]
   const [openSemesters, setOpenSemesters] = useState(() => {
     try {
-      const saved = localStorage.getItem("sltc_gpa_open_semesters");
+      const savedDegree = localStorage.getItem("sltc_gpa_degree_v3") || "cyber-security";
+      const verifiedDegree = CURRICULUM_DATABASE[savedDegree] ? savedDegree : "cyber-security";
+      const saved = localStorage.getItem("sltc_gpa_open_semesters_v3");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed;
         }
       }
-      return [{ year: 1, semester: 1 }];
+      return getSemestersForDegree(verifiedDegree);
     } catch (e) {
-      return [{ year: 1, semester: 1 }];
+      return getSemestersForDegree("cyber-security");
     }
   });
 
   // Track grade values: { [degree]: { [year]: { [semester]: { [courseCode-courseName]: grade } } } }
   const [grades, setGrades] = useState(() => {
     try {
-      const saved = localStorage.getItem("sltc_gpa_grades_v2");
+      const saved = localStorage.getItem("sltc_gpa_grades_v3");
       return saved ? JSON.parse(saved) : {};
     } catch (e) {
       return {};
@@ -44,7 +56,7 @@ export function GpaProvider({ children }) {
   // Track active electives added by user: { [degree]: { [year]: { [semester]: [ courseObj ] } } }
   const [addedElectives, setAddedElectives] = useState(() => {
     try {
-      const saved = localStorage.getItem("sltc_gpa_added_electives");
+      const saved = localStorage.getItem("sltc_gpa_added_electives_v3");
       return saved ? JSON.parse(saved) : {};
     } catch (e) {
       return {};
@@ -54,16 +66,16 @@ export function GpaProvider({ children }) {
   // Active accent color theme: 'gold' (SLTC Gold), 'neon' (Cyber Neon), 'blue' (Deep Blue)
   const [theme, setTheme] = useState(() => {
     try {
-      return localStorage.getItem("sltc_gpa_theme") || "gold";
+      return localStorage.getItem("sltc_gpa_theme_v3") || "gold";
     } catch (e) {
       return "gold";
     }
   });
 
-  // Active brightness mode: false (Dark Mode - default), true (Light Mode)
+  // Active brightness mode: false (Dark Mode), true (Light Mode)
   const [isLightMode, setIsLightMode] = useState(() => {
     try {
-      return localStorage.getItem("sltc_gpa_light_mode") === "true";
+      return localStorage.getItem("sltc_gpa_light_mode_v3") === "true";
     } catch (e) {
       return false;
     }
@@ -72,7 +84,7 @@ export function GpaProvider({ children }) {
   // Sync states to local storage safely
   useEffect(() => {
     try {
-      localStorage.setItem("sltc_gpa_degree", selectedDegree);
+      localStorage.setItem("sltc_gpa_degree_v3", selectedDegree);
     } catch (e) {
       console.error(e);
     }
@@ -80,7 +92,7 @@ export function GpaProvider({ children }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem("sltc_gpa_open_semesters", JSON.stringify(openSemesters));
+      localStorage.setItem("sltc_gpa_open_semesters_v3", JSON.stringify(openSemesters));
     } catch (e) {
       console.error(e);
     }
@@ -88,7 +100,7 @@ export function GpaProvider({ children }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem("sltc_gpa_grades_v2", JSON.stringify(grades));
+      localStorage.setItem("sltc_gpa_grades_v3", JSON.stringify(grades));
     } catch (e) {
       console.error(e);
     }
@@ -96,7 +108,7 @@ export function GpaProvider({ children }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem("sltc_gpa_added_electives", JSON.stringify(addedElectives));
+      localStorage.setItem("sltc_gpa_added_electives_v3", JSON.stringify(addedElectives));
     } catch (e) {
       console.error(e);
     }
@@ -104,7 +116,7 @@ export function GpaProvider({ children }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem("sltc_gpa_theme", theme);
+      localStorage.setItem("sltc_gpa_theme_v3", theme);
     } catch (e) {
       console.error(e);
     }
@@ -112,38 +124,22 @@ export function GpaProvider({ children }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem("sltc_gpa_light_mode", isLightMode);
+      localStorage.setItem("sltc_gpa_light_mode_v3", isLightMode);
     } catch (e) {
       console.error(e);
     }
   }, [isLightMode]);
 
-  // Handle degree changes, clear semesters in viewport that are invalid
+  // Handle degree changes, automatically loading all semesters corresponding to that degree's duration
   const handleDegreeChange = (degreeId) => {
-    const verifiedDegree = CURRICULUM_DATABASE[degreeId] ? degreeId : "software-engineering";
+    const verifiedDegree = CURRICULUM_DATABASE[degreeId] ? degreeId : "cyber-security";
     setSelectedDegree(verifiedDegree);
-    
-    // Validate currently open semesters against the new degree's structural limits
-    const degreeData = CURRICULUM_DATABASE[verifiedDegree];
-    if (degreeData) {
-      const validSemesters = [];
-      openSemesters.forEach(sem => {
-        if (degreeData.years[sem.year]?.[sem.semester]) {
-          validSemesters.push(sem);
-        }
-      });
-      // If none are valid, open Year 1 Semester 1 by default
-      if (validSemesters.length === 0) {
-        setOpenSemesters([{ year: 1, semester: 1 }]);
-      } else {
-        setOpenSemesters(validSemesters);
-      }
-    }
+    const defaultSems = getSemestersForDegree(verifiedDegree);
+    setOpenSemesters(defaultSems);
   };
 
   // Add a semester card to the workspace
   const addSemesterCard = (year, semester) => {
-    // Avoid duplicate cards
     const exists = openSemesters.some(s => s.year === year && s.semester === semester);
     if (!exists) {
       setOpenSemesters(prev => [...prev, { year, semester }].sort((a, b) => {
@@ -157,7 +153,7 @@ export function GpaProvider({ children }) {
   const removeSemesterCard = (year, semester) => {
     setOpenSemesters(prev => {
       const updated = prev.filter(s => !(s.year === year && s.semester === semester));
-      return updated.length > 0 ? updated : [{ year: 1, semester: 1 }]; // Keep at least one card
+      return updated.length > 0 ? updated : getSemestersForDegree(selectedDegree);
     });
   };
 
@@ -177,7 +173,7 @@ export function GpaProvider({ children }) {
 
   // Resolve current active modules for a semester, combining preloaded Core with added Electives
   const getSemesterModules = (year, semester) => {
-    const degreeData = CURRICULUM_DATABASE[selectedDegree] || CURRICULUM_DATABASE["software-engineering"];
+    const degreeData = CURRICULUM_DATABASE[selectedDegree] || CURRICULUM_DATABASE["cyber-security"];
     if (!degreeData) return [];
 
     const semesterData = degreeData.years[year]?.[semester];
@@ -197,7 +193,6 @@ export function GpaProvider({ children }) {
       if (!updated[selectedDegree][year]) updated[selectedDegree][year] = {};
       if (!updated[selectedDegree][year][semester]) updated[selectedDegree][year][semester] = [];
       
-      // Prevent duplicate electives in the same semester card
       const exists = updated[selectedDegree][year][semester].some(m => m.code === electiveModule.code);
       if (!exists) {
         updated[selectedDegree][year][semester] = [
@@ -214,7 +209,6 @@ export function GpaProvider({ children }) {
     setAddedElectives(prev => {
       const updated = { ...prev };
       if (updated[selectedDegree]?.[year]?.[semester]) {
-        // Also remove its grade
         const course = updated[selectedDegree][year][semester].find(c => c.code === courseCode);
         if (course) {
           const key = `${course.code}-${course.name}`;
@@ -226,7 +220,6 @@ export function GpaProvider({ children }) {
             return gUpdated;
           });
         }
-
         updated[selectedDegree][year][semester] = updated[selectedDegree][year][semester].filter(m => m.code !== courseCode);
       }
       return updated;
@@ -235,7 +228,6 @@ export function GpaProvider({ children }) {
 
   // Reset a specific semester card's grades and electives
   const resetSemester = (year, semester) => {
-    // Clear grades
     setGrades(prev => {
       const updated = { ...prev };
       if (updated[selectedDegree]?.[year]?.[semester]) {
@@ -244,7 +236,6 @@ export function GpaProvider({ children }) {
       return updated;
     });
 
-    // Clear electives
     setAddedElectives(prev => {
       const updated = { ...prev };
       if (updated[selectedDegree]?.[year]?.[semester]) {
@@ -254,22 +245,27 @@ export function GpaProvider({ children }) {
     });
   };
 
+  // Reset viewport to default semesters for selected degree
+  const resetToAll8Semesters = () => {
+    setOpenSemesters(getSemestersForDegree(selectedDegree));
+  };
+
   // Clear entire application cache
   const clearAllCache = () => {
     try {
-      localStorage.removeItem("sltc_gpa_degree");
-      localStorage.removeItem("sltc_gpa_grades_v2");
-      localStorage.removeItem("sltc_gpa_added_electives");
-      localStorage.removeItem("sltc_gpa_open_semesters");
-      localStorage.removeItem("sltc_gpa_theme");
-      localStorage.removeItem("sltc_gpa_light_mode");
+      localStorage.removeItem("sltc_gpa_degree_v3");
+      localStorage.removeItem("sltc_gpa_grades_v3");
+      localStorage.removeItem("sltc_gpa_added_electives_v3");
+      localStorage.removeItem("sltc_gpa_open_semesters_v3");
+      localStorage.removeItem("sltc_gpa_theme_v3");
+      localStorage.removeItem("sltc_gpa_light_mode_v3");
     } catch (e) {
       console.error(e);
     }
     setGrades({});
     setAddedElectives({});
-    setOpenSemesters([{ year: 1, semester: 1 }]);
-    setSelectedDegree("software-engineering");
+    setSelectedDegree("cyber-security");
+    setOpenSemesters(getSemestersForDegree("cyber-security"));
     setTheme("gold");
     setIsLightMode(false);
   };
@@ -281,6 +277,7 @@ export function GpaProvider({ children }) {
       openSemesters,
       addSemesterCard,
       removeSemesterCard,
+      resetToAll8Semesters,
       grades,
       setCourseGrade,
       addedElectives,
