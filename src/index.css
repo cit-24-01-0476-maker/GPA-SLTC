@@ -1,0 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --color-navy-950: #030712;
+  --color-navy-900: #0a192f;
+  --color-navy-800: #172a45;
+  --color-navy-700: #30475e;
+  --color-navy-600: #475569;
+
+  --color-gold-50: #fffbeb;
+  --color-gold-100: #fef3c7;
+  --color-gold-200: #fde68a;
+  --color-gold-300: #fcd34d;
+  --color-gold-400: #fbbf24;
+  --color-gold-500: #D4AF37;
+  --color-gold-600: #ca8a04;
+  --color-gold-700: #a16207;
+  --color-gold-800: #854d0e;
+  --color-gold-900: #713f12;
+  --color-gold: #D4AF37;
+
+  --font-sans: "Outfit", "Inter", "system-ui", "sans-serif";
+
+  --shadow-gold-glow: 0 0 15px rgba(212, 175, 55, 0.15);
+  --shadow-gold-glow-lg: 0 0 25px rgba(212, 175, 55, 0.25);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+  --backdrop-blur-glass: 16px;
+}
+
+body {
+  background-image: linear-gradient(to bottom right, var(--color-navy-950), #07111e, var(--color-navy-900));
+  color: #f1f5f9;
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: var(--color-gold-500);
+  color: var(--color-navy-950);
+}
+
+/* Premium Glassmorphism styling classes */
+.glass-panel {
+  background: rgba(23, 42, 69, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-panel-heavy {
+  background: rgba(10, 25, 47, 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel-hover:hover {
+  background: rgba(23, 42, 69, 0.55);
+  border-color: rgba(212, 175, 55, 0.3);
+  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.6), 0 0 15px rgba(212, 175, 55, 0.06);
+  transform: translateY(-2px);
+}
+
+.glass-input {
+  background: rgba(3, 7, 18, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-input:focus {
+  border-color: rgba(212, 175, 55, 0.45);
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.12);
+  outline: none;
+}
+
+/* Glowing gold elements */
+.gold-glow {
+  box-shadow: var(--shadow-gold-glow);
+}
+
+.gold-text-glow {
+  text-shadow: 0 0 12px rgba(212, 175, 55, 0.25);
+}
+
+/* Customized academic theme scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #030712;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #172a45;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D4AF37;
+}
+
+/* Custom animations */
+@keyframes pulse-gold {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.25;
+    transform: scale(1.03);
+  }
+}
+
+.animate-pulse-gold {
+  animation: pulse-gold 4s infinite ease-in-out;
+}
