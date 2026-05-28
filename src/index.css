@@ -2,126 +2,256 @@
 
 @import "tailwindcss";
 
-@theme {
+:root {
+  /* ================== DARK MODE DEFAULT ================== */
+  --theme-accent: #D4AF37;
+  --theme-accent-hover: #F59E0B;
+  --theme-accent-rgb: 212, 175, 55;
+  --theme-bg-glow: rgba(212, 175, 55, 0.08);
+  
   --color-navy-950: #030712;
   --color-navy-900: #0a192f;
   --color-navy-800: #172a45;
   --color-navy-700: #30475e;
   --color-navy-600: #475569;
+  
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  
+  --glass-bg: rgba(23, 42, 69, 0.35);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-input-bg: rgba(3, 7, 18, 0.5);
+  --glass-input-border: rgba(255, 255, 255, 0.08);
+  --glass-bg-heavy: rgba(10, 25, 47, 0.75);
+}
 
-  --color-gold-50: #fffbeb;
-  --color-gold-100: #fef3c7;
-  --color-gold-200: #fde68a;
-  --color-gold-300: #fcd34d;
-  --color-gold-400: #fbbf24;
-  --color-gold-500: #D4AF37;
-  --color-gold-600: #ca8a04;
-  --color-gold-700: #a16207;
-  --color-gold-800: #854d0e;
-  --color-gold-900: #713f12;
-  --color-gold: #D4AF37;
+/* ================== LIGHT MODE OVERRIDES ================== */
+[data-light="true"] {
+  --theme-accent: #B8860B; /* Darker Gold for proper contrast in Light Mode */
+  --theme-accent-hover: #916803;
+  --theme-accent-rgb: 184, 134, 11;
+  --theme-bg-glow: rgba(184, 134, 11, 0.06);
+
+  --color-navy-950: #f8fafc; /* Beautiful off-white canvas */
+  --color-navy-900: #f1f5f9; /* Slate grid background */
+  --color-navy-800: #ffffff; /* pure white cards */
+  --color-navy-700: #cbd5e1; /* border highlights */
+  --color-navy-600: #64748b; /* Slate descriptions */
+  
+  --text-primary: #0f172a; /* Rich charcoal text */
+  --text-secondary: #475569; /* Slate grey text */
+  
+  --glass-bg: rgba(255, 255, 255, 0.7); /* Frosted light panels */
+  --glass-border: rgba(15, 23, 42, 0.08);
+  --glass-input-bg: rgba(255, 255, 255, 0.95);
+  --glass-input-border: rgba(15, 23, 42, 0.1);
+  --glass-bg-heavy: rgba(255, 255, 255, 0.95);
+}
+
+/* ================== THEME PALETTES (DARK) ================== */
+[data-theme="neon"] {
+  --theme-accent: #00F5FF;
+  --theme-accent-hover: #FF007F;
+  --theme-accent-rgb: 0, 245, 255;
+  --theme-bg-glow: rgba(0, 245, 255, 0.12);
+}
+
+[data-theme="blue"] {
+  --theme-accent: #3B82F6;
+  --theme-accent-hover: #60A5FA;
+  --theme-accent-rgb: 59, 130, 246;
+  --theme-bg-glow: rgba(59, 130, 246, 0.12);
+}
+
+/* ================== THEME PALETTES (LIGHT CONTRAST OVERRIDES) ================== */
+[data-theme="neon"][data-light="true"] {
+  --theme-accent: #0d9488; /* Teal details for cyber-light contrast */
+  --theme-accent-hover: #db2777; /* Deep magenta */
+  --theme-accent-rgb: 13, 148, 136;
+  --theme-bg-glow: rgba(13, 148, 136, 0.08);
+}
+
+[data-theme="blue"][data-light="true"] {
+  --theme-accent: #1D4ED8; /* Vibrant Indigo for blue-light contrast */
+  --theme-accent-hover: #1E40AF;
+  --theme-accent-rgb: 29, 78, 216;
+  --theme-bg-glow: rgba(29, 78, 216, 0.08);
+}
+
+@theme {
+  --color-navy-950: var(--color-navy-950);
+  --color-navy-900: var(--color-navy-900);
+  --color-navy-800: var(--color-navy-800);
+  --color-navy-700: var(--color-navy-700);
+  --color-navy-600: var(--color-navy-600);
+
+  --color-accent: var(--theme-accent);
+  --color-accent-hover: var(--theme-accent-hover);
 
   --font-sans: "Outfit", "Inter", "system-ui", "sans-serif";
 
-  --shadow-gold-glow: 0 0 15px rgba(212, 175, 55, 0.15);
-  --shadow-gold-glow-lg: 0 0 25px rgba(212, 175, 55, 0.25);
-  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --shadow-accent-glow: 0 0 15px rgba(var(--theme-accent-rgb), 0.2);
+  --shadow-accent-glow-lg: 0 0 25px rgba(var(--theme-accent-rgb), 0.35);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.15);
 
-  --backdrop-blur-glass: 16px;
+  --backdrop-blur-glass: 20px;
 }
 
 body {
-  background-image: linear-gradient(to bottom right, var(--color-navy-950), #07111e, var(--color-navy-900));
-  color: #f1f5f9;
+  background-image: linear-gradient(to bottom right, var(--color-navy-950), var(--color-navy-900), var(--color-navy-900));
+  color: var(--text-primary);
   font-family: var(--font-sans);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  transition: background 0.35s ease, color 0.35s ease;
 }
 
 ::selection {
-  background-color: var(--color-gold-500);
+  background-color: var(--theme-accent);
   color: var(--color-navy-950);
 }
 
-/* Premium Glassmorphism styling classes */
+/* Frosted glass preset panels */
 .glass-panel {
-  background: rgba(23, 42, 69, 0.35);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  transition: background 0.35s ease, border 0.35s ease, box-shadow 0.3s ease;
 }
 
 .glass-panel-heavy {
-  background: rgba(10, 25, 47, 0.7);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.glass-panel-hover {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-panel-hover:hover {
-  background: rgba(23, 42, 69, 0.55);
-  border-color: rgba(212, 175, 55, 0.3);
-  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.6), 0 0 15px rgba(212, 175, 55, 0.06);
-  transform: translateY(-2px);
+  background: var(--glass-bg-heavy);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid var(--glass-border);
+  transition: background 0.35s ease, border 0.35s ease, box-shadow 0.3s ease;
 }
 
 .glass-input {
-  background: rgba(3, 7, 18, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--glass-input-bg);
+  border: 1px solid var(--glass-input-border);
+  color: var(--text-primary);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-input:focus {
-  border-color: rgba(212, 175, 55, 0.45);
-  box-shadow: 0 0 12px rgba(212, 175, 55, 0.12);
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 12px rgba(var(--theme-accent-rgb), 0.25);
   outline: none;
 }
 
-/* Glowing gold elements */
-.gold-glow {
-  box-shadow: var(--shadow-gold-glow);
+/* Floating custom dynamic orbs */
+.accent-glow-bg {
+  background: var(--theme-bg-glow);
+  transition: background 0.35s ease;
 }
 
-.gold-text-glow {
-  text-shadow: 0 0 12px rgba(212, 175, 55, 0.25);
-}
-
-/* Customized academic theme scrollbar */
+/* Customized scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #030712;
+  background: var(--color-navy-950);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #172a45;
+  background: var(--color-navy-800);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #D4AF37;
+  background: var(--theme-accent);
 }
 
-/* Custom animations */
-@keyframes pulse-gold {
-  0%, 100% {
-    opacity: 0.15;
-    transform: scale(1);
+/* Animated Aurora Background effect */
+@keyframes aurora-1 {
+  0% {
+    transform: translate(0px, 0px) scale(1);
   }
   50% {
-    opacity: 0.25;
-    transform: scale(1.03);
+    transform: translate(80px, -80px) scale(1.2);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
   }
 }
 
-.animate-pulse-gold {
-  animation: pulse-gold 4s infinite ease-in-out;
+@keyframes aurora-2 {
+  0% {
+    transform: translate(0px, 0px) scale(1.1);
+  }
+  50% {
+    transform: translate(-100px, 50px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1.1);
+  }
+}
+
+@keyframes aurora-3 {
+  0% {
+    transform: translate(0px, 0px) scale(0.9);
+  }
+  50% {
+    transform: translate(50px, 100px) scale(1.15);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(0.9);
+  }
+}
+
+.animate-aurora-1 {
+  animation: aurora-1 25s infinite ease-in-out;
+}
+
+.animate-aurora-2 {
+  animation: aurora-2 30s infinite ease-in-out;
+}
+
+.animate-aurora-3 {
+  animation: aurora-3 28s infinite ease-in-out;
+}
+
+/* ================== LIGHT MODE HIGH-FIDELITY CSS OVERRIDES ================== */
+/* This block dynamically switches static tailwind text colors to dynamic theme variables in light mode */
+[data-light="true"] .text-white {
+  color: var(--text-primary) !important;
+}
+
+[data-light="true"] .text-slate-400,
+[data-light="true"] .text-slate-300,
+[data-light="true"] .text-slate-200 {
+  color: var(--text-secondary) !important;
+}
+
+[data-light="true"] .text-slate-500 {
+  color: var(--text-secondary) !important;
+  opacity: 0.85;
+}
+
+/* Safe exclusions (keep text white for buttons, modals header details, and active tags) */
+[data-light="true"] button.bg-accent,
+[data-light="true"] select.bg-accent,
+[data-light="true"] .bg-accent select,
+[data-light="true"] .shadow-accent-glow button,
+[data-light="true"] .shadow-accent-glow select {
+  color: #030712 !important;
+}
+
+[data-light="true"] .bg-blue-500\/10 {
+  background-color: rgba(59, 130, 246, 0.08) !important;
+}
+
+[data-light="true"] .bg-amber-500\/10 {
+  background-color: rgba(245, 158, 11, 0.08) !important;
+}
+
+/* Smooth transitions for variables */
+.transition-accent {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   GraduationCap, 
   BookOpen, 
-  Award, 
+  Plus, 
   Trash2, 
   RefreshCw, 
   Calculator, 
@@ -16,114 +17,133 @@ import {
   Database, 
   Cpu, 
   CheckCircle2, 
-  Plus, 
   Save, 
-  AlertCircle 
+  AlertCircle, 
+  Layers, 
+  X, 
+  Search,
+  Palette,
+  RotateCcw,
+  Sun,
+  Moon
 } from 'lucide-react';
+import { useGpa } from './context/GpaContext';
 import { CURRICULUM_DATABASE, GRADING_SYSTEM } from './data/curriculum';
 
+// --- ROLLING COUNT COMPONENT ---
+// Uses requestAnimationFrame for a premium GPU-accelerated numerical counter transition
+function RollingCount({ value }) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    let start = displayValue;
+    const end = parseFloat(value) || 0;
+    if (start === end) return;
+
+    const duration = 1000; // Duration of animation in ms
+    const range = end - start;
+    let startTime = null;
+
+    const animate = (timestamp) => {
+      if (!startTime) startTime = timestamp;
+      const progress = timestamp - startTime;
+      const progressPercentage = Math.min(progress / duration, 1);
+      
+      // Easing out quadratic
+      const easeOutQuad = 1 - (1 - progressPercentage) * (1 - progressPercentage);
+      const current = start + range * easeOutQuad;
+      
+      setDisplayValue(current);
+
+      if (progressPercentage < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        setDisplayValue(end);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [value]);
+
+  return <span>{displayValue.toFixed(2)}</span>;
+}
+
 export default function App() {
-  // --- STATE SYSTEM ---
-  const [selectedDegree, setSelectedDegree] = useState("software-engineering");
-  const [selectedYear, setSelectedYear] = useState(1);
-  const [selectedSemester, setSelectedSemester] = useState(1);
-  const [targetGpa, setTargetGpa] = useState("3.50");
-  const [showSavedToast, setShowSavedToast] = useState(false);
+  const {
+    selectedDegree,
+    handleDegreeChange,
+    openSemesters,
+    addSemesterCard,
+    removeSemesterCard,
+    grades,
+    setCourseGrade,
+    addedElectives,
+    addElective,
+    removeElective,
+    getSemesterModules,
+    resetSemester,
+    clearAllCache,
+    theme,
+    setTheme,
+    isLightMode,
+    setIsLightMode
+  } = useGpa();
+
+  // Local state for modals & user parameters
+  const [activeElectiveSemester, setActiveElectiveSemester] = useState(null); // { year, semester }
+  const [electiveSearch, setElectiveSearch] = useState("");
+  const [targetCgpa, setTargetCgpa] = useState("3.50");
+  const [showClearToast, setShowClearToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  // Persistent Grades state: { [degree]: { [year]: { [semester]: { [courseCode]: grade } } } }
-  const [grades, setGrades] = useState(() => {
-    const saved = localStorage.getItem("sltc_gpa_grades");
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  // Persistent Saved Semesters for CGPA Tracker
-  const [savedSemesters, setSavedSemesters] = useState(() => {
-    const saved = localStorage.getItem("sltc_gpa_saved_semesters");
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Sync grades to localStorage
+  // Sync the context theme selection and light mode with document-level data attributes
   useEffect(() => {
-    localStorage.setItem("sltc_gpa_grades", JSON.stringify(grades));
-  }, [grades]);
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.setAttribute('data-theme', theme);
+    
+    document.documentElement.setAttribute('data-light', isLightMode);
+    document.body.setAttribute('data-light', isLightMode);
+  }, [theme, isLightMode]);
 
-  // Sync saved semesters to localStorage
-  useEffect(() => {
-    localStorage.setItem("sltc_gpa_saved_semesters", JSON.stringify(savedSemesters));
-  }, [savedSemesters]);
+  const activeDegreeData = CURRICULUM_DATABASE[selectedDegree] || CURRICULUM_DATABASE["software-engineering"];
 
-  // --- DYNAMIC DATABASE RESOLUTION ---
-  const activeDegree = CURRICULUM_DATABASE[selectedDegree] || CURRICULUM_DATABASE["software-engineering"];
-  
-  // Resolve years & semesters dynamically based on the preloaded database to support future additions
-  const availableYears = Object.keys(activeDegree.years).map(Number).sort((a, b) => a - b);
-  
-  // Ensure selected year is valid for the current degree, fallback to first available
-  useEffect(() => {
-    if (!availableYears.includes(selectedYear) && availableYears.length > 0) {
-      setSelectedYear(availableYears[0]);
-    }
-  }, [selectedDegree, availableYears, selectedYear]);
-
-  const activeYearData = activeDegree.years[selectedYear] || {};
-  const availableSemesters = Object.keys(activeYearData).map(Number).sort((a, b) => a - b);
-
-  // Ensure selected semester is valid for the current year, fallback to first available
-  useEffect(() => {
-    if (!availableSemesters.includes(selectedSemester) && availableSemesters.length > 0) {
-      setSelectedSemester(availableSemesters[0]);
-    }
-  }, [selectedYear, availableSemesters, selectedSemester]);
-
-  const activeModules = activeYearData[selectedSemester] || [];
-
-  // --- ICON MAP FOR DEGREES ---
+  // --- ICON RESOLVER FOR DEGREES ---
   const getDegreeIcon = (id) => {
     switch (id) {
-      case 'software-engineering': return <Code2 className="w-5 h-5" />;
-      case 'cloud-computing': return <Cloud className="w-5 h-5" />;
-      case 'cyber-security': return <Shield className="w-5 h-5" />;
-      case 'data-science': return <Database className="w-5 h-5" />;
-      case 'applied-it': return <Cpu className="w-5 h-5" />;
-      default: return <GraduationCap className="w-5 h-5" />;
+      case 'software-engineering': return <Code2 className="w-5 h-5 text-accent" />;
+      case 'cloud-computing': return <Cloud className="w-5 h-5 text-accent" />;
+      case 'cyber-security': return <Shield className="w-5 h-5 text-accent" />;
+      case 'data-science': return <Database className="w-5 h-5 text-accent" />;
+      case 'applied-it': return <Cpu className="w-5 h-5 text-accent" />;
+      default: return <GraduationCap className="w-5 h-5 text-accent" />;
     }
   };
 
-  // --- GPA CALCULATION ENGINE ---
-  const getGradeForModule = (courseCode, courseName) => {
-    const compoundKey = `${courseCode}-${courseName}`;
-    return grades[selectedDegree]?.[selectedYear]?.[selectedSemester]?.[compoundKey] || "";
+  // Trigger notification toast
+  const triggerToast = (msg) => {
+    setToastMessage(msg);
+    setShowClearToast(true);
+    setTimeout(() => setShowClearToast(false), 3000);
   };
 
-  const handleGradeChange = (courseCode, courseName, gradeValue) => {
-    const compoundKey = `${courseCode}-${courseName}`;
-    setGrades(prev => {
-      const updated = { ...prev };
-      if (!updated[selectedDegree]) updated[selectedDegree] = {};
-      if (!updated[selectedDegree][selectedYear]) updated[selectedDegree][selectedYear] = {};
-      if (!updated[selectedDegree][selectedYear][selectedSemester]) updated[selectedDegree][selectedYear][selectedSemester] = {};
-      
-      updated[selectedDegree][selectedYear][selectedSemester][compoundKey] = gradeValue;
-      return updated;
-    });
-  };
-
-  // Calculate SGPA for current active semester
-  const calculateSemesterStats = () => {
+  // --- CALCULATIONS FOR SINGLE SEMESTER ---
+  const getSemesterCalculations = (year, semester) => {
+    const modules = getSemesterModules(year, semester);
     let totalPoints = 0;
     let totalCredits = 0;
-    let selectedCount = 0;
+    let completedCount = 0;
     let gpaModulesCount = 0;
 
-    activeModules.forEach(mod => {
+    modules.forEach(mod => {
       if (mod.category === 'GPA') {
         gpaModulesCount++;
-        const grade = getGradeForModule(mod.code, mod.name);
-        if (grade && GRADING_SYSTEM[grade]) {
-          totalPoints += GRADING_SYSTEM[grade].gp * mod.credits;
+        const gradeKey = `${mod.code}-${mod.name}`;
+        const selectedGrade = grades[selectedDegree]?.[year]?.[semester]?.[gradeKey] || "";
+        
+        if (selectedGrade && GRADING_SYSTEM[selectedGrade]) {
+          totalPoints += GRADING_SYSTEM[selectedGrade].gp * mod.credits;
           totalCredits += mod.credits;
-          selectedCount++;
+          completedCount++;
         }
       }
     });
@@ -131,147 +151,127 @@ export default function App() {
     const sgpa = totalCredits > 0 ? (totalPoints / totalCredits) : 0;
 
     return {
-      totalPoints: parseFloat(totalPoints.toFixed(2)),
-      totalCredits,
       sgpa: parseFloat(sgpa.toFixed(2)),
-      allSelected: selectedCount === gpaModulesCount && gpaModulesCount > 0,
-      selectedCount,
-      gpaModulesCount
+      totalCredits,
+      totalPoints: parseFloat(totalPoints.toFixed(2)),
+      completedCount,
+      gpaModulesCount,
+      isFullyCompleted: completedCount === gpaModulesCount && gpaModulesCount > 0
     };
   };
 
-  const currentSemesterStats = calculateSemesterStats();
-
-  // Reset grades for current semester
-  const resetSemesterGrades = () => {
-    setGrades(prev => {
-      const updated = { ...prev };
-      if (updated[selectedDegree]?.[selectedYear]?.[selectedSemester]) {
-        updated[selectedDegree][selectedYear][selectedSemester] = {};
-      }
-      return updated;
-    });
-    triggerToast("Semester grades reset successfully.");
-  };
-
-  // Trigger Toast Notification
-  const triggerToast = (msg) => {
-    setToastMessage(msg);
-    setShowSavedToast(true);
-    setTimeout(() => setShowSavedToast(false), 3000);
-  };
-
-  // --- ACADEMIC RECORD / CGPA TRACKER ACTIONS ---
-  const saveSemesterToRecord = () => {
-    // Collect active modules and their graded values
-    const courseGrades = activeModules.map(mod => ({
-      code: mod.code,
-      name: mod.name,
-      credits: mod.credits,
-      category: mod.category,
-      grade: getGradeForModule(mod.code, mod.name)
-    })).filter(c => c.grade !== ""); // Only save courses where user selected a grade
-
-    if (courseGrades.length === 0) {
-      triggerToast("Cannot save: No grades have been selected yet!");
-      return;
-    }
-
-    // Prevent duplicates by updating if already saved
-    setSavedSemesters(prev => {
-      const filtered = prev.filter(item => 
-        !(item.degreeId === selectedDegree && item.year === selectedYear && item.semester === selectedSemester)
-      );
-
-      return [...filtered, {
-        degreeId: selectedDegree,
-        degreeName: activeDegree.name,
-        year: selectedYear,
-        semester: selectedSemester,
-        courses: courseGrades,
-        sgpa: currentSemesterStats.sgpa,
-        credits: currentSemesterStats.totalCredits
-      }].sort((a, b) => {
-        // Sort by Degree, then Year, then Semester
-        if (a.degreeName !== b.degreeName) return a.degreeName.localeCompare(b.degreeName);
-        if (a.year !== b.year) return a.year - b.year;
-        return a.semester - b.semester;
-      });
-    });
-
-    triggerToast(`Year ${selectedYear} Semester ${selectedSemester} saved to academic record.`);
-  };
-
-  const removeSemesterFromRecord = (index) => {
-    setSavedSemesters(prev => prev.filter((_, i) => i !== index));
-    triggerToast("Semester removed from academic record.");
-  };
-
-  const clearAllSavedSemesters = () => {
-    if (window.confirm("Are you sure you want to clear your entire saved academic record?")) {
-      setSavedSemesters([]);
-      triggerToast("Academic record cleared.");
-    }
-  };
-
-  // Calculate Cumulative GPA (CGPA) from saved semesters
-  const calculateCumulativeStats = () => {
+  // --- GLOBAL (FINAL) GPA CALCULATIONS ---
+  // Calculates points across all open semesters in the workspace
+  const getGlobalCalculations = () => {
     let grandPoints = 0;
     let grandCredits = 0;
+    let completedCoursesCount = 0;
+    let totalGpaCoursesCount = 0;
 
-    savedSemesters.forEach(sem => {
-      sem.courses.forEach(c => {
-        if (c.category === 'GPA' && GRADING_SYSTEM[c.grade]) {
-          grandPoints += GRADING_SYSTEM[c.grade].gp * c.credits;
-          grandCredits += c.credits;
+    openSemesters.forEach(sem => {
+      const modules = getSemesterModules(sem.year, sem.semester);
+      modules.forEach(mod => {
+        if (mod.category === 'GPA') {
+          totalGpaCoursesCount++;
+          const gradeKey = `${mod.code}-${mod.name}`;
+          const selectedGrade = grades[selectedDegree]?.[sem.year]?.[sem.semester]?.[gradeKey] || "";
+          
+          if (selectedGrade && GRADING_SYSTEM[selectedGrade]) {
+            grandPoints += GRADING_SYSTEM[selectedGrade].gp * mod.credits;
+            grandCredits += mod.credits;
+            completedCoursesCount++;
+          }
         }
       });
     });
 
-    const cgpa = grandCredits > 0 ? (grandPoints / grandCredits) : 0;
+    const fgpa = grandCredits > 0 ? (grandPoints / grandCredits) : 0;
 
     return {
-      cgpa: parseFloat(cgpa.toFixed(2)),
+      fgpa: parseFloat(fgpa.toFixed(2)),
       totalCredits: grandCredits,
-      totalPoints: parseFloat(grandPoints.toFixed(2))
+      totalPoints: parseFloat(grandPoints.toFixed(2)),
+      completedCount: completedCoursesCount,
+      totalCount: totalGpaCoursesCount
     };
   };
 
-  const cumulativeStats = calculateCumulativeStats();
+  const globalCalculations = getGlobalCalculations();
 
-  // --- WHAT-IF GPA PLANNER ENGINE ---
-  const calculateWhatIfStatus = () => {
-    const target = parseFloat(targetGpa);
-    if (isNaN(target) || target < 0 || target > 4.0) return { error: "Please enter a valid GPA target between 0.00 and 4.00" };
+  // --- YEARLY GPA CALCULATIONS (YGPA) ---
+  // Calculates combined GPA for Semester 1 & 2 of a specific year
+  const getYearlyGpa = (year) => {
+    let yearPoints = 0;
+    let yearCredits = 0;
+
+    // Filter semesters open for this year
+    const openSemsThisYear = openSemesters.filter(s => s.year === year);
+    
+    openSemsThisYear.forEach(sem => {
+      const modules = getSemesterModules(sem.year, sem.semester);
+      modules.forEach(mod => {
+        if (mod.category === 'GPA') {
+          const gradeKey = `${mod.code}-${mod.name}`;
+          const selectedGrade = grades[selectedDegree]?.[sem.year]?.[sem.semester]?.[gradeKey] || "";
+          
+          if (selectedGrade && GRADING_SYSTEM[selectedGrade]) {
+            yearPoints += GRADING_SYSTEM[selectedGrade].gp * mod.credits;
+            yearCredits += mod.credits;
+          }
+        }
+      });
+    });
+
+    const ygpa = yearCredits > 0 ? (yearPoints / yearCredits) : 0;
+    return {
+      ygpa: parseFloat(ygpa.toFixed(2)),
+      credits: yearCredits
+    };
+  };
+
+  // --- GLOBAL WHAT-IF CGPA PLANNER ---
+  const calculateGlobalWhatIf = () => {
+    const target = parseFloat(targetCgpa);
+    if (isNaN(target) || target < 0 || target > 4.0) {
+      return { error: "Enter target GPA between 0.00 and 4.00" };
+    }
 
     let completedPoints = 0;
     let completedCredits = 0;
     let remainingCredits = 0;
 
-    activeModules.forEach(mod => {
-      if (mod.category === 'GPA') {
-        const grade = getGradeForModule(mod.code, mod.name);
-        if (grade && GRADING_SYSTEM[grade]) {
-          completedPoints += GRADING_SYSTEM[grade].gp * mod.credits;
-          completedCredits += mod.credits;
-        } else {
-          remainingCredits += mod.credits;
+    // Aggregate open semesters
+    openSemesters.forEach(sem => {
+      const modules = getSemesterModules(sem.year, sem.semester);
+      modules.forEach(mod => {
+        if (mod.category === 'GPA') {
+          const gradeKey = `${mod.code}-${mod.name}`;
+          const selectedGrade = grades[selectedDegree]?.[sem.year]?.[sem.semester]?.[gradeKey] || "";
+          
+          if (selectedGrade && GRADING_SYSTEM[selectedGrade]) {
+            completedPoints += GRADING_SYSTEM[selectedGrade].gp * mod.credits;
+            completedCredits += mod.credits;
+          } else {
+            remainingCredits += mod.credits;
+          }
         }
-      }
+      });
     });
 
-    const totalExpectedCredits = completedCredits + remainingCredits;
-    if (totalExpectedCredits === 0) return { message: "No GPA modules in this semester." };
+    const totalWorkspaceCredits = completedCredits + remainingCredits;
+    if (totalWorkspaceCredits === 0) {
+      return { message: "No active GPA courses on the board." };
+    }
 
-    const targetPointsTotal = target * totalExpectedCredits;
-    const requiredPointsFromRemaining = targetPointsTotal - completedPoints;
+    const requiredGrandPoints = target * totalWorkspaceCredits;
+    const requiredPointsFromRemaining = requiredGrandPoints - completedPoints;
 
     if (remainingCredits === 0) {
-      const currentGpa = completedCredits > 0 ? (completedPoints / completedCredits) : 0;
-      if (currentGpa >= target) {
-        return { success: true, message: `Target Achieved! Current GPA is ${currentGpa.toFixed(2)}.` };
+      const currentCgpa = completedCredits > 0 ? (completedPoints / completedCredits) : 0;
+      if (currentCgpa >= target) {
+        return { success: true, message: `Target Achieved! Current CGPA is ${currentCgpa.toFixed(2)}.` };
       } else {
-        return { success: false, message: `Semester complete. Current GPA ${currentGpa.toFixed(2)} is below target ${target.toFixed(2)}.` };
+        return { success: false, message: `All open courses are graded. Current CGPA ${currentCgpa.toFixed(2)} is below target ${target.toFixed(2)}.` };
       }
     }
 
@@ -280,16 +280,16 @@ export default function App() {
     if (requiredAverageGp > 4.0) {
       return { 
         impossible: true, 
-        message: `Mathematically impossible. You would need a grade point of ${requiredAverageGp.toFixed(2)} average, but the maximum is 4.00.` 
+        message: `Mathematically impossible. You would need an average GP of ${requiredAverageGp.toFixed(2)} across remaining ${remainingCredits} credits, but the limit is 4.00.` 
       };
     } else if (requiredAverageGp <= 0.0) {
       return { 
         success: true, 
-        message: `Target locked! You have already accumulated enough points. You need an average grade point of 0.00 (E) or higher on remaining modules.` 
+        message: `Target secured! You have already earned enough points. You only need an average of 0.00 (E) on remaining credits.` 
       };
     } else {
-      // Find the closest grade that covers this GP
-      let suggestedGrade = 'E';
+      // Find the closest letter grade that satisfies the required GP
+      let suggestedGrade = 'E (0-29)';
       let sortedGrades = Object.entries(GRADING_SYSTEM).sort((a, b) => a[1].gp - b[1].gp);
       for (let [gName, gData] of sortedGrades) {
         if (gData.gp >= requiredAverageGp) {
@@ -302,493 +302,670 @@ export default function App() {
         planning: true, 
         requiredAverageGp: parseFloat(requiredAverageGp.toFixed(2)),
         suggestedGrade,
-        message: `To achieve ${target.toFixed(2)} GPA, you need to average a ${requiredAverageGp.toFixed(2)} GP (${suggestedGrade}) on the remaining ${remainingCredits} credits.`
+        message: `To reach your target ${target.toFixed(2)} CGPA, you must average a ${requiredAverageGp.toFixed(2)} GP (${suggestedGrade}) on the remaining ${remainingCredits} credits.`
       };
     }
   };
 
-  const whatIfStatus = calculateWhatIfStatus();
+  const globalWhatIfStatus = calculateGlobalWhatIf();
 
-  // Print Report Handler
-  const printReport = () => {
+  // Print PDF exporter
+  const triggerPrint = () => {
     window.print();
   };
 
+  // Reset all local storage cache
+  const handleResetCache = () => {
+    if (window.confirm("This will erase all course grades, electives, and active open semesters. Reset?")) {
+      clearAllCache();
+      triggerToast("System cash and calculations reset successfully.");
+    }
+  };
+
+  // --- ELECTIVE SELECTION ACTIONS ---
+  const handleOpenElectiveModal = (year, semester) => {
+    setActiveElectiveSemester({ year, semester });
+    setElectiveSearch("");
+  };
+
+  const handleAddElectiveToSemester = (course) => {
+    if (activeElectiveSemester) {
+      addElective(activeElectiveSemester.year, activeElectiveSemester.semester, course);
+      setActiveElectiveSemester(null);
+      triggerToast(`${course.code} Elective added successfully.`);
+    }
+  };
+
+  // Resolve available electives not already added
+  const getFilteredElectives = () => {
+    if (!activeElectiveSemester) return [];
+    const pool = activeDegreeData.years[activeElectiveSemester.year]?.[activeElectiveSemester.semester]?.electivesPool || [];
+    const added = addedElectives[selectedDegree]?.[activeElectiveSemester.year]?.[activeElectiveSemester.semester] || [];
+    
+    // Filter out electives already added
+    const available = pool.filter(p => !added.some(a => a.code === p.code));
+
+    // Search query filter
+    if (electiveSearch.trim() === "") return available;
+    return available.filter(item => 
+      item.code.toLowerCase().includes(electiveSearch.toLowerCase()) || 
+      item.name.toLowerCase().includes(electiveSearch.toLowerCase())
+    );
+  };
+
   return (
-    <div className="flex flex-col min-h-screen relative overflow-hidden select-none pb-12">
-      {/* Background Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-navy-800/20 blur-[120px] pointer-events-none -z-10 animate-pulse-gold"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-gold-900/10 blur-[150px] pointer-events-none -z-10 animate-pulse-gold" style={{ animationDelay: '2s' }}></div>
+    <div className="flex flex-col min-h-screen relative overflow-hidden select-none pb-12 transition-accent">
+      
+      {/* --- AURORA FLOATING BACKDROP ORBS --- */}
+      <div className="absolute top-[-15%] left-[-15%] w-[600px] h-[600px] rounded-full accent-glow-bg blur-[130px] pointer-events-none -z-10 animate-aurora-1"></div>
+      <div className="absolute bottom-[-15%] right-[-15%] w-[700px] h-[700px] rounded-full bg-navy-800/20 blur-[150px] pointer-events-none -z-10 animate-aurora-2" style={{ animationDelay: '3s' }}></div>
+      <div className="absolute top-[40%] left-[30%] w-[500px] h-[500px] rounded-full bg-navy-900/10 blur-[120px] pointer-events-none -z-10 animate-aurora-3" style={{ animationDelay: '6s' }}></div>
 
       {/* --- HEADER --- */}
-      <header className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
-        <div className="glass-panel rounded-2xl px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 relative z-10 border-gold-500/10">
+      <header className="w-full max-w-none px-4 sm:px-6 md:px-12 pt-8 pb-4 print:hidden">
+        <div className="glass-panel rounded-2xl px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 border-white/10 shadow-glass">
+          
+          {/* Logo & Subtitle */}
           <div className="flex items-center gap-4">
-            {/* Logo Shield SVG */}
-            <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-gold-400 to-gold-600 text-navy-950 shadow-gold-glow">
+            <motion.div 
+              whileHover={{ rotate: 15, scale: 1.05 }}
+              className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-accent to-accent-hover text-navy-950 shadow-accent-glow"
+            >
               <GraduationCap className="w-7 h-7" />
-              <div className="absolute -inset-0.5 rounded-xl border border-gold-300 opacity-50"></div>
-            </div>
+              <div className="absolute -inset-0.5 rounded-xl border border-white opacity-40"></div>
+            </motion.div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                SLTC<span className="text-gold-500 font-extrabold text-lg sm:text-xl px-1.5 py-0.5 bg-gold-500/10 border border-gold-500/20 rounded-md">GPA</span>.CALCULATOR
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                SLTC<span className="text-accent font-extrabold text-lg sm:text-xl px-2 py-0.5 bg-accent/10 border border-accent/20 rounded-md transition-accent">GPA</span>.CALCULATOR
               </h1>
-              <p className="text-xs text-slate-400 font-medium">Sri Lanka Technology Campus • Academic Excellence Portal</p>
+              <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">Sri Lanka Technology Campus • Academic Workspace v2.0</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={printReport}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white glass-panel glass-panel-hover"
-            >
-              <Download className="w-4 h-4 text-gold-500" />
-              Export Report
-            </button>
-            <div className="hidden lg:flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/25">
-              <Sparkles className="w-4 h-4" />
-              Premium Mode Active
+
+          {/* Theme switcher & global utilities */}
+          <div className="flex flex-wrap items-center gap-3 justify-center">
+            
+            {/* Color switcher toggler */}
+            <div className="glass-panel bg-white/5 rounded-xl p-1 flex items-center gap-1 border-white/5">
+              <button 
+                onClick={() => setTheme("gold")}
+                className={`text-[10px] font-extrabold px-3 py-1.5 rounded-lg transition-accent uppercase flex items-center gap-1 ${
+                  theme === "gold" ? "bg-accent text-navy-950 shadow-accent-glow font-black" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Palette className="w-3.5 h-3.5" />
+                Gold
+              </button>
+              <button 
+                onClick={() => setTheme("neon")}
+                className={`text-[10px] font-extrabold px-3 py-1.5 rounded-lg transition-accent uppercase flex items-center gap-1 ${
+                  theme === "neon" ? "bg-accent text-navy-950 shadow-accent-glow font-black" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Palette className="w-3.5 h-3.5" />
+                Neon
+              </button>
+              <button 
+                onClick={() => setTheme("blue")}
+                className={`text-[10px] font-extrabold px-3 py-1.5 rounded-lg transition-accent uppercase flex items-center gap-1 ${
+                  theme === "blue" ? "bg-accent text-navy-950 shadow-accent-glow font-black" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Palette className="w-3.5 h-3.5" />
+                Blue
+              </button>
             </div>
+
+            {/* Dark/Light Mode Toggler */}
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setIsLightMode(!isLightMode)}
+              className="px-3 py-2 rounded-xl glass-panel hover:bg-white/5 border-white/5 text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5"
+              title="Toggle Light / Dark Mode"
+            >
+              {isLightMode ? <Moon className="w-4 h-4 text-accent" /> : <Sun className="w-4 h-4 text-accent" />}
+              <span className="hidden md:inline text-[10px] uppercase font-extrabold tracking-wider">
+                {isLightMode ? "Dark Mode" : "Light Mode"}
+              </span>
+            </motion.button>
+
+            {/* Reset All Cache */}
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
+              onClick={handleResetCache}
+              className="p-2.5 rounded-xl glass-panel hover:bg-red-500/10 border-white/5 text-slate-400 hover:text-red-400 transition-colors"
+              title="Reset All Workspace Data"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </motion.button>
+
+            {/* Print Report */}
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
+              onClick={triggerPrint}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white glass-panel hover:bg-white/5 border-white/5 hover:border-accent/30 transition-accent"
+            >
+              <Download className="w-4 h-4 text-accent transition-accent" />
+              Export PDF
+            </motion.button>
           </div>
         </div>
       </header>
 
-      {/* --- MAIN LAYOUT GRID --- */}
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4 relative z-10">
+      {/* --- DESKTOP VIEWPORT LAYOUT --- */}
+      <main className="w-full max-w-none px-4 sm:px-6 md:px-12 mt-4 grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
         
-        {/* --- LEFT SIDEBAR: SELECTORS & ACADEMIC PROGRESS SUMMARY --- */}
-        <section className="lg:col-span-1 flex flex-col gap-8">
+        {/* --- LEFT SECTION: WORKSPACE CONTROL & SEMESTER CARDS PANEL (SPAN 2) --- */}
+        <section className="lg:col-span-2 flex flex-col gap-6">
           
-          {/* Card 1: Degree & Semester Selector */}
-          <div className="glass-panel rounded-2xl p-6 relative border-gold-500/10 shadow-glass">
-            <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
-              <Award className="w-5 h-5 text-gold-500" />
-              <h2 className="text-lg font-bold text-white tracking-wide">Academic Selections</h2>
-            </div>
-            
-            {/* Step 1: Degree Selector */}
-            <div className="mb-5">
-              <label className="block text-xs font-bold text-gold-400 uppercase tracking-wider mb-2">1. Select Your Degree</label>
-              <div className="relative">
+          {/* Degree and Add Semester Toolbar Card */}
+          <div className="glass-panel rounded-2xl p-6 border-white/10 shadow-glass flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <Layers className="w-5 h-5 text-accent transition-accent shrink-0" />
+              <div className="flex-1">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-accent transition-accent">Degree Program</label>
                 <select 
-                  value={selectedDegree} 
-                  onChange={(e) => setSelectedDegree(e.target.value)}
-                  className="w-full px-4 py-3 pl-10 rounded-xl text-sm font-semibold text-white glass-input appearance-none"
+                  value={selectedDegree}
+                  onChange={(e) => handleDegreeChange(e.target.value)}
+                  className="bg-transparent border-0 font-extrabold text-white text-base focus:ring-0 focus:outline-none cursor-pointer p-0"
                 >
                   {Object.entries(CURRICULUM_DATABASE).map(([key, value]) => (
-                    <option key={key} value={key} className="bg-navy-900 text-white">
+                    <option key={key} value={key} className="bg-navy-900 text-white font-semibold">
                       {value.name}
                     </option>
                   ))}
                 </select>
-                <div className="absolute left-3 top-3.5 text-gold-500">
-                  {getDegreeIcon(selectedDegree)}
-                </div>
               </div>
             </div>
 
-            {/* Step 2: Year Selector */}
-            <div className="mb-5">
-              <label className="block text-xs font-bold text-gold-400 uppercase tracking-wider mb-2">2. Select Year</label>
-              <div className="grid grid-cols-2 gap-2">
-                {availableYears.map((yr) => (
-                  <button
-                    key={yr}
-                    onClick={() => setSelectedYear(yr)}
-                    className={`py-2.5 px-4 rounded-xl text-sm font-bold transition-all duration-200 border ${
-                      selectedYear === yr
-                        ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-navy-950 border-gold-400 shadow-gold-glow'
-                        : 'glass-panel text-slate-300 border-white/5 hover:border-gold-500/30'
-                    }`}
-                  >
-                    Year {yr}
-                  </button>
-                ))}
-                {availableYears.length === 0 && (
-                  <div className="col-span-2 text-center text-xs text-slate-500 p-2">No years configured</div>
-                )}
-              </div>
-            </div>
+            {/* Quick semester adding controls */}
+            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+              <label className="text-xs font-bold text-slate-400">Open Semester:</label>
+              
+              <div className="flex gap-2">
+                {/* Year Selection Dropdown */}
+                <select 
+                  id="addYearSelect"
+                  className="glass-input rounded-xl px-3 py-1.5 text-xs font-bold text-white appearance-none cursor-pointer"
+                >
+                  {Object.keys(activeDegreeData.years).map(yr => (
+                    <option key={yr} value={yr} className="bg-navy-900 text-white font-bold">Year {yr}</option>
+                  ))}
+                </select>
+                
+                {/* Semester Selection Dropdown */}
+                <select 
+                  id="addSemSelect"
+                  className="glass-input rounded-xl px-3 py-1.5 text-xs font-bold text-white appearance-none cursor-pointer"
+                >
+                  <option value="1" className="bg-navy-900 text-white font-bold">Sem 1</option>
+                  <option value="2" className="bg-navy-900 text-white font-bold">Sem 2</option>
+                </select>
 
-            {/* Step 3: Semester Selector */}
-            <div>
-              <label className="block text-xs font-bold text-gold-400 uppercase tracking-wider mb-2">3. Select Semester</label>
-              <div className="grid grid-cols-2 gap-2">
-                {availableSemesters.map((sem) => (
-                  <button
-                    key={sem}
-                    onClick={() => setSelectedSemester(sem)}
-                    className={`py-2.5 px-4 rounded-xl text-sm font-bold transition-all duration-200 border ${
-                      selectedSemester === sem
-                        ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-navy-950 border-gold-400 shadow-gold-glow'
-                        : 'glass-panel text-slate-300 border-white/5 hover:border-gold-500/30'
-                    }`}
-                  >
-                    Semester {sem}
-                  </button>
-                ))}
-                {availableSemesters.length === 0 && (
-                  <div className="col-span-2 text-center text-xs text-slate-500 py-3 glass-panel rounded-xl">
-                    No Semesters available for Year {selectedYear}
-                  </div>
-                )}
+                {/* Add Card trigger */}
+                <motion.button 
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    const yr = parseInt(document.getElementById("addYearSelect").value) || 1;
+                    const sem = parseInt(document.getElementById("addSemSelect").value) || 1;
+                    
+                    // Validate if semester exists in configuration before adding
+                    if (activeDegreeData.years[yr]?.[sem]) {
+                      addSemesterCard(yr, sem);
+                      triggerToast(`Year ${yr} Semester ${sem} added to workspace.`);
+                    } else {
+                      triggerToast(`Semester configuration unavailable for this degree.`);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-bold bg-accent text-navy-950 hover:bg-accent-hover transition-accent shadow-accent-glow"
+                >
+                  <Plus className="w-4 h-4 shrink-0" />
+                  Add Board
+                </motion.button>
               </div>
             </div>
           </div>
 
-          {/* Card 2: Interactive Real-Time Dashboard (SGPA circular meter) */}
-          <div className="glass-panel rounded-2xl p-6 relative border-gold-500/10 shadow-glass overflow-hidden">
-            <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-gold-500" />
-                <h2 className="text-lg font-bold text-white tracking-wide">Semester Stats</h2>
-              </div>
-              {currentSemesterStats.selectedCount > 0 && (
-                <span className="text-[10px] uppercase font-extrabold bg-green-500/10 text-green-400 px-2 py-0.5 border border-green-500/20 rounded-md">
-                  Active
-                </span>
-              )}
-            </div>
+          {/* OPEN ACTIVE SEMESTER CARDS */}
+          <div className="flex flex-col gap-8">
+            <AnimatePresence mode="popLayout">
+              {openSemesters.map((sem, index) => {
+                const stats = getSemesterCalculations(sem.year, sem.semester);
+                const modules = getSemesterModules(sem.year, sem.semester);
+                const isYear3Or4 = sem.year === 3 || sem.year === 4;
+                const isComputing = selectedDegree !== "applied-it";
 
-            {/* Gauge Row */}
-            <div className="flex flex-col sm:flex-row items-center gap-6 py-2">
-              {/* Circular Gauge */}
-              <div className="relative w-32 h-32 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                  {/* Background Circle */}
-                  <circle 
-                    cx="50" cy="50" r="42" 
-                    fill="transparent" 
-                    stroke="rgba(255,255,255,0.03)" 
-                    strokeWidth="8"
-                  />
-                  {/* Gauge Highlight Fill */}
-                  <circle 
-                    cx="50" cy="50" r="42" 
-                    fill="transparent" 
-                    stroke="url(#goldGradient)" 
-                    strokeWidth="8"
-                    strokeDasharray={2 * Math.PI * 42}
-                    strokeDashoffset={2 * Math.PI * 42 * (1 - currentSemesterStats.sgpa / 4.0)}
-                    strokeLinecap="round"
-                    className="transition-all duration-1000 ease-out"
-                  />
-                  {/* Gradient definition */}
-                  <defs>
-                    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#FBBD23" />
-                      <stop offset="100%" stopColor="#D4AF37" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                {/* Internal Center Content */}
-                <div className="absolute flex flex-col items-center justify-center">
-                  <span className="text-3xl font-extrabold text-white tracking-tight gold-text-glow">
-                    {currentSemesterStats.sgpa.toFixed(2)}
-                  </span>
-                  <span className="text-[10px] text-gold-500 font-bold uppercase tracking-wider">SGPA</span>
-                </div>
-              </div>
+                return (
+                  <motion.div
+                    key={`${selectedDegree}-${sem.year}-${sem.semester}`}
+                    initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -30 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                    className="glass-panel rounded-2xl p-6 border-white/10 shadow-glass relative overflow-hidden"
+                  >
+                    
+                    {/* Semester Header toolbar */}
+                    <div className="flex justify-between items-center border-b border-white/5 pb-4 mb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="w-5 h-5 text-accent transition-accent" />
+                          <h3 className="text-base font-bold text-white tracking-wide">
+                            Year {sem.year} Semester {sem.semester}
+                          </h3>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-0.5 uppercase tracking-wider font-semibold">
+                          Semester Card • {modules.length} Modules Active
+                        </p>
+                      </div>
 
-              {/* Stat breakdowns */}
-              <div className="flex-1 w-full flex flex-col gap-3 justify-center">
-                <div className="glass-input rounded-xl p-3 flex justify-between items-center">
-                  <span className="text-xs font-semibold text-slate-400">Total Points</span>
-                  <span className="text-sm font-bold text-white">{currentSemesterStats.totalPoints.toFixed(1)}</span>
-                </div>
-                <div className="glass-input rounded-xl p-3 flex justify-between items-center">
-                  <span className="text-xs font-semibold text-slate-400">Total GPA Credits</span>
-                  <span className="text-sm font-bold text-white">{currentSemesterStats.totalCredits}</span>
-                </div>
-              </div>
-            </div>
+                      {/* Header utilities */}
+                      <div className="flex items-center gap-2 print:hidden">
+                        <button
+                          onClick={() => resetSemester(sem.year, sem.semester)}
+                          className="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-[10px] font-black text-slate-400 hover:text-slate-200 glass-panel border-white/5"
+                          title="Reset Semester Grades & Electives"
+                        >
+                          <RefreshCw className="w-3 h-3 text-accent transition-accent" />
+                          Reset
+                        </button>
+                        
+                        {/* Remove sem card from viewport */}
+                        {openSemesters.length > 1 && (
+                          <button
+                            onClick={() => removeSemesterCard(sem.year, sem.semester)}
+                            className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors"
+                            title="Close Card"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
-            {/* Quick Math Summary Formula (Based on manual instructions) */}
-            <div className="mt-3 text-xs bg-navy-950/40 p-2.5 rounded-xl border border-white/5 font-mono text-slate-400 flex flex-col gap-1">
-              <div className="flex justify-between border-b border-white/5 pb-1">
-                <span>Sum (GP * Credits)</span>
-                <span className="text-white font-bold">{currentSemesterStats.totalPoints.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between pt-1">
-                <span>GPA = {currentSemesterStats.totalPoints.toFixed(1)} / {currentSemesterStats.totalCredits}</span>
-                <span className="text-gold-400 font-bold">{currentSemesterStats.sgpa.toFixed(2)}</span>
-              </div>
-            </div>
+                    {/* Semester Modules list table */}
+                    <div className="overflow-x-auto rounded-xl border border-white/5 mb-4">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-navy-950/60 border-b border-white/5 text-[10px] uppercase tracking-widest font-extrabold text-accent transition-accent">
+                            <th className="py-3.5 px-4">Code</th>
+                            <th className="py-3.5 px-4">Module Name</th>
+                            <th className="py-3.5 px-4 text-center">Credits</th>
+                            <th className="py-3.5 px-4 text-center">Type</th>
+                            <th className="py-3.5 px-4 text-center">Grade</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-xs font-medium">
+                          {modules.map((mod) => {
+                            const gradeKey = `${mod.code}-${mod.name}`;
+                            const selectedGrade = grades[selectedDegree]?.[sem.year]?.[sem.semester]?.[gradeKey] || "";
+                            
+                            return (
+                              <tr 
+                                key={gradeKey}
+                                className={`transition-colors duration-150 ${
+                                  selectedGrade ? 'bg-accent/5 hover:bg-accent/10' : 'hover:bg-white/[0.01]'
+                                }`}
+                              >
+                                <td className="py-3.5 px-4 font-mono font-bold text-slate-300">
+                                  {mod.code}
+                                </td>
+                                <td className="py-3.5 px-4 text-white font-bold flex items-center justify-between">
+                                  <span>{mod.name}</span>
+                                  {/* Delete button if user added it as an Elective */}
+                                  {mod.isElective && (
+                                    <button 
+                                      onClick={() => removeElective(sem.year, sem.semester, mod.code)}
+                                      className="text-red-400 hover:text-red-300 ml-2 font-bold opacity-60 hover:opacity-100 transition-opacity print:hidden"
+                                    >
+                                      Delete
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="py-3.5 px-4 text-center font-extrabold text-slate-300">
+                                  {mod.credits}
+                                </td>
+                                <td className="py-3.5 px-4 text-center">
+                                  <span className={`text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded border ${
+                                    mod.category === 'GPA'
+                                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                  }`}>
+                                    {mod.category}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-4">
+                                  <div className="flex justify-center">
+                                    <select
+                                      value={selectedGrade}
+                                      onChange={(e) => setCourseGrade(sem.year, sem.semester, mod.code, mod.name, e.target.value)}
+                                      className={`w-32 py-1.5 px-2 rounded-lg text-[11px] font-black appearance-none text-center cursor-pointer transition-accent border ${
+                                        selectedGrade
+                                          ? 'bg-accent text-navy-950 border-accent font-black shadow-sm'
+                                          : 'glass-input text-slate-400 hover:border-white/20'
+                                      }`}
+                                    >
+                                      <option value="" className="bg-navy-900 text-slate-400 font-bold">- Grade -</option>
+                                      {Object.entries(GRADING_SYSTEM).map(([g, details]) => (
+                                        <option key={g} value={g} className="bg-navy-900 text-white font-bold">
+                                          {g} ({details.range})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
 
-            {/* Actions for active semester */}
-            <div className="grid grid-cols-2 gap-2 mt-4 pt-1">
-              <button
-                onClick={saveSemesterToRecord}
-                disabled={currentSemesterStats.totalCredits === 0}
-                className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold bg-gold-500 text-navy-950 hover:bg-gold-400 transition-all duration-200 shadow-gold-glow disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <Save className="w-3.5 h-3.5" />
-                Save Sem
-              </button>
-              <button
-                onClick={resetSemesterGrades}
-                className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold text-white glass-panel glass-panel-hover"
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-gold-500" />
-                Reset
-              </button>
-            </div>
+                    {/* Card Footer: Add elective (for Year 3 & 4) & Semester Stat breakdown */}
+                    <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mt-2">
+                      
+                      {/* Electives adder for Computing Year 3 and Year 4 */}
+                      {isComputing && isYear3Or4 ? (
+                        <motion.button 
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleOpenElectiveModal(sem.year, sem.semester)}
+                          className="px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-accent/30 text-accent hover:bg-accent/10 transition-accent flex items-center justify-center gap-1.5 print:hidden"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Elective
+                        </motion.button>
+                      ) : (
+                        <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide flex items-center gap-1">
+                          <Info className="w-3.5 h-3.5 text-accent/40 transition-accent" />
+                          Core Semester (Pre-defined Curriculum)
+                        </div>
+                      )}
+
+                      {/* Stat summary pills */}
+                      <div className="flex gap-2 justify-end font-extrabold text-xs">
+                        <div className="glass-panel px-3 py-1.5 rounded-lg border-white/5 text-slate-300">
+                          SGPA Credits: <span className="text-white font-black">{stats.totalCredits}</span>
+                        </div>
+                        <div className="glass-panel px-3 py-1.5 rounded-lg border-white/5 text-slate-300 flex items-center gap-1">
+                          SGPA: 
+                          <span className="text-accent transition-accent font-black text-sm">
+                            {stats.sgpa.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
         </section>
 
-        {/* --- MIDDLE COLUMN: MAIN PRELOADED MODULES LIST TABLE --- */}
-        <section className="lg:col-span-2 flex flex-col gap-8">
-          <div className="glass-panel rounded-2xl p-6 relative border-gold-500/10 shadow-glass flex-1 flex flex-col">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 border-b border-white/5 pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-gold-500" />
-                  <h2 className="text-lg font-bold text-white tracking-wide">{activeDegree.name}</h2>
-                </div>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Year {selectedYear} • Semester {selectedSemester} Modules Database
-                </p>
+        {/* --- RIGHT SECTION: STICKY GLOBAL TOTALS DASHBOARD (SPAN 1) --- */}
+        <section className="lg:col-span-1 print:col-span-3">
+          <div className="lg:sticky lg:top-8 flex flex-col gap-8">
+            
+            {/* STICKY CARD: Final Cumulative Board Dashboard */}
+            <div className="glass-panel rounded-2xl p-6 border-white/10 shadow-glass overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-[150px] h-[150px] rounded-full bg-accent/5 blur-[50px] pointer-events-none -z-10 animate-pulse-gold"></div>
+              
+              <div className="flex items-center gap-2 mb-6 border-b border-white/5 pb-3">
+                <TrendingUp className="w-5 h-5 text-accent transition-accent" />
+                <h3 className="text-lg font-bold text-white tracking-wide">Final Dashboard</h3>
               </div>
-              <span className="text-xs font-bold text-gold-500 bg-gold-500/10 border border-gold-500/20 px-3 py-1 rounded-full flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {activeModules.length} Modules Pre-loaded
-              </span>
+
+              {/* Master Circular ring and large digits */}
+              <div className="flex flex-col items-center py-4 mb-4">
+                <div className="relative w-40 h-40 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle 
+                      cx="50" cy="50" r="42" 
+                      fill="transparent" 
+                      stroke="rgba(255,255,255,0.03)" 
+                      strokeWidth="7"
+                    />
+                    <motion.circle 
+                      cx="50" cy="50" r="42" 
+                      fill="transparent" 
+                      stroke="var(--theme-accent)" 
+                      strokeWidth="7"
+                      strokeDasharray={2 * Math.PI * 42}
+                      strokeDashoffset={2 * Math.PI * 42 * (1 - globalCalculations.fgpa / 4.0)}
+                      strokeLinecap="round"
+                      className="transition-accent"
+                    />
+                  </svg>
+                  
+                  {/* Digital text counters inside circle */}
+                  <div className="absolute flex flex-col items-center justify-center">
+                    <span className="text-4xl font-extrabold text-white tracking-tight leading-none gold-text-glow">
+                      <RollingCount value={globalCalculations.fgpa} />
+                    </span>
+                    <span className="text-[10px] text-accent font-extrabold tracking-widest uppercase mt-1 transition-accent">
+                      FGPA
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-slate-500 font-extrabold uppercase mt-2">
+                  Total points earned: {globalCalculations.totalPoints.toFixed(1)}
+                </div>
+              </div>
+
+              {/* Grid mapping for board parameters */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="glass-input rounded-xl p-3 flex flex-col border-white/5 justify-center">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Total Credits</span>
+                  <span className="text-lg font-extrabold text-white">{globalCalculations.totalCredits}</span>
+                </div>
+                <div className="glass-input rounded-xl p-3 flex flex-col border-white/5 justify-center">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Modules Graded</span>
+                  <span className="text-lg font-extrabold text-white">
+                    {globalCalculations.completedCount} / {globalCalculations.totalCount}
+                  </span>
+                </div>
+              </div>
+
+              {/* YEARLY GPA METRICS (YGPA ACCORDION BOX) */}
+              <div className="flex flex-col gap-2 mb-6 border-t border-white/5 pt-4">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-accent mb-1 transition-accent">
+                  Combined Yearly GPA (YGPA)
+                </h4>
+                
+                {[1, 2, 3, 4].map(yr => {
+                  const data = getYearlyGpa(yr);
+                  // Only display years that have open semesters
+                  const yearHasSems = openSemesters.some(s => s.year === yr);
+                  if (!yearHasSems) return null;
+
+                  return (
+                    <div key={yr} className="glass-input border-white/5 rounded-xl p-3 flex justify-between items-center text-xs">
+                      <span className="font-bold text-slate-300">Year {yr} Cumulative</span>
+                      <div className="text-right">
+                        <span className="font-extrabold text-white block">{data.ygpa.toFixed(2)}</span>
+                        <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">{data.credits} Credits</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Formula reference label */}
+              <div className="text-[10px] bg-navy-950/40 p-3 rounded-xl border border-white/5 font-mono text-slate-400 leading-relaxed">
+                <span className="text-accent font-bold block mb-0.5 transition-accent">Global Dashboard Formula:</span>
+                FGPA = Sum of (Grade Point * Credits) across all open semesters divided by total credits.
+              </div>
             </div>
 
-            {/* Table Container */}
-            <div className="overflow-x-auto rounded-xl border border-white/5 flex-1">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-navy-950/60 border-b border-white/5 text-[11px] uppercase tracking-wider font-extrabold text-gold-400">
-                    <th className="py-4 px-4">Code</th>
-                    <th className="py-4 px-4">Module Name</th>
-                    <th className="py-4 px-4 text-center">Credits</th>
-                    <th className="py-4 px-4 text-center">Type</th>
-                    <th className="py-4 px-4 text-center">Grade Achieved</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5 text-sm">
-                  {activeModules.map((mod) => {
-                    const selectedGrade = getGradeForModule(mod.code, mod.name);
-                    const gradePoint = selectedGrade ? GRADING_SYSTEM[selectedGrade]?.gp : null;
+            {/* WHAT-IF PLANNER INTERACTIVE CARD */}
+            <div className="glass-panel rounded-2xl p-6 border-white/10 shadow-glass">
+              <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
+                <Calculator className="w-5 h-5 text-accent transition-accent" />
+                <h3 className="text-base font-bold text-white tracking-wide">"What-If" CGPA Planner</h3>
+              </div>
 
-                    return (
-                      <tr 
-                        key={`${mod.code}-${mod.name}`} 
-                        className={`transition-colors duration-150 ${
-                          selectedGrade 
-                            ? 'bg-gold-500/5 hover:bg-gold-500/10' 
-                            : 'hover:bg-white/[0.02]'
-                        }`}
-                      >
-                        <td className="py-4 px-4 font-mono text-xs font-bold text-slate-300">
-                          {mod.code}
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="font-semibold text-white">{mod.name}</div>
-                        </td>
-                        <td className="py-4 px-4 text-center font-bold text-slate-300">
-                          {mod.credits}
-                        </td>
-                        <td className="py-4 px-4 text-center">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                            mod.category === 'GPA'
-                              ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                              : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          }`}>
-                            {mod.category}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center justify-center">
-                            <select
-                              value={selectedGrade}
-                              onChange={(e) => handleGradeChange(mod.code, mod.name, e.target.value)}
-                              className={`w-32 py-1.5 px-3 rounded-lg text-xs font-bold appearance-none text-center cursor-pointer transition-all duration-200 border ${
-                                selectedGrade
-                                  ? 'bg-gold-500 text-navy-950 border-gold-400 font-extrabold shadow-sm'
-                                  : 'glass-input text-slate-400 hover:border-white/20'
-                              }`}
-                            >
-                              <option value="" className="bg-navy-900 text-slate-400 font-semibold">- Select Grade -</option>
-                              {Object.entries(GRADING_SYSTEM).map(([g, details]) => (
-                                <option key={g} value={g} className="bg-navy-900 text-white font-semibold">
-                                  {g} ({details.range})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {activeModules.length === 0 && (
-                    <tr>
-                      <td colSpan="5" className="py-12 text-center text-slate-500 font-semibold">
-                        No modules preloaded for this selection.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Manual Logic Reference Label */}
-            <div className="mt-4 flex items-start gap-2 bg-blue-500/5 border border-blue-500/10 rounded-xl p-3.5 text-xs text-slate-400">
-              <Info className="w-4 h-4 text-gold-500 shrink-0 mt-0.5" />
-              <p className="leading-relaxed">
-                <strong className="text-slate-300">Formulas Employed: </strong>
-                Module Value = <code className="text-gold-400 font-bold font-mono">Grade Point * Credit</code>. 
-                SGPA = <code className="text-gold-400 font-bold font-mono">Sum(Module Values) / Sum(Credits)</code>. 
-                Non-GPA modules (NGPA) are preloaded for complete record tracking but are 
-                <span className="text-gold-400 font-bold"> strictly omitted</span> from all GPA mathematical models.
+              <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">
+                Target your graduation honors class! Input your target final GPA for all open semesters.
               </p>
+
+              <div className="flex items-center gap-3 mb-4">
+                <label className="text-[10px] font-extrabold text-accent uppercase tracking-widest transition-accent">Target CGPA:</label>
+                <input 
+                  type="number" 
+                  min="0.00" 
+                  max="4.00" 
+                  step="0.01" 
+                  value={targetCgpa}
+                  onChange={(e) => setTargetCgpa(e.target.value)}
+                  className="w-24 px-3 py-1.5 text-xs font-black text-white text-center glass-input rounded-lg"
+                />
+              </div>
+
+              {/* Dynamic Warning and success message containers */}
+              <div className={`p-4 rounded-xl border flex gap-3 items-start ${
+                globalWhatIfStatus.impossible
+                  ? 'bg-red-500/5 border-red-500/20 text-red-300'
+                  : globalWhatIfStatus.success
+                    ? 'bg-green-500/5 border-green-500/20 text-green-300'
+                    : 'bg-accent/5 border-accent/15 text-slate-200'
+              }`}>
+                <AlertCircle className={`w-5 h-5 shrink-0 mt-0.5 ${
+                  globalWhatIfStatus.impossible ? 'text-red-400' : 'text-accent transition-accent'
+                }`} />
+                <div>
+                  <h4 className="text-[10px] font-black uppercase tracking-wider mb-1">Target Analysis:</h4>
+                  <p className="text-[11px] font-bold leading-relaxed">
+                    {globalWhatIfStatus.message || globalWhatIfStatus.error}
+                  </p>
+                </div>
+              </div>
             </div>
+
           </div>
         </section>
       </main>
 
-      {/* --- CUMULATIVE & WHAT-IF EXTRA DASHBOARD AREA --- */}
-      <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-2 gap-8 mt-8 relative z-10">
-        
-        {/* WHAT-IF TARGET CALCULATOR */}
-        <div className="glass-panel rounded-2xl p-6 border-gold-500/10 shadow-glass flex flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
-              <Calculator className="w-5 h-5 text-gold-500" />
-              <h3 className="text-lg font-bold text-white tracking-wide">"What-If" Semester Planner</h3>
-            </div>
+      {/* --- ELECTIVES SEARCH AND SELECTION MODAL --- */}
+      <AnimatePresence>
+        {activeElectiveSemester && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
             
-            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-              Plan ahead! Enter your target GPA for this semester and discover exactly what average grades you must achieve on any remaining courses.
-            </p>
+            {/* Translucent overlay mask */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setActiveElectiveSemester(null)}
+              className="absolute inset-0 bg-navy-950/70 backdrop-blur-md"
+            ></motion.div>
 
-            <div className="flex items-center gap-3 mb-4">
-              <label className="text-xs font-bold text-gold-400 uppercase tracking-wider">Target GPA:</label>
-              <input 
-                type="number" 
-                min="0.00" 
-                max="4.00" 
-                step="0.01" 
-                value={targetGpa}
-                onChange={(e) => setTargetGpa(e.target.value)}
-                className="w-24 px-3 py-1.5 text-xs font-extrabold text-white text-center glass-input rounded-lg"
-              />
-            </div>
-
-            {/* Dynamic Message Box based on state */}
-            <div className={`p-4 rounded-xl border flex gap-3 items-start ${
-              whatIfStatus.impossible
-                ? 'bg-red-500/5 border-red-500/20 text-red-300'
-                : whatIfStatus.success
-                  ? 'bg-green-500/5 border-green-500/20 text-green-300'
-                  : 'bg-gold-500/5 border-gold-500/15 text-gold-200'
-            }`}>
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-gold-500" />
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider mb-1">Calculation Output:</h4>
-                <p className="text-xs font-semibold leading-relaxed">
-                  {whatIfStatus.message || whatIfStatus.error}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 text-[10px] text-slate-500 border-t border-white/5 text-right font-semibold">
-            Based on active grades selected in table
-          </div>
-        </div>
-
-        {/* CGPA TRACKER / MULTI-SEMESTER RECORD */}
-        <div className="glass-panel rounded-2xl p-6 border-gold-500/10 shadow-glass flex flex-col">
-          <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-gold-500" />
-              <h3 className="text-lg font-bold text-white tracking-wide">Academic Record (CGPA)</h3>
-            </div>
-            {savedSemesters.length > 0 && (
-              <button
-                onClick={clearAllSavedSemesters}
-                className="text-[10px] text-red-400 hover:text-red-300 font-extrabold uppercase flex items-center gap-1 transition-all"
+            {/* Modal Body Card */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="glass-panel-heavy rounded-2xl w-full max-w-lg p-6 relative border-white/20 shadow-glass-lg overflow-hidden"
+            >
+              
+              {/* Close button */}
+              <button 
+                onClick={() => setActiveElectiveSemester(null)}
+                className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
               >
-                <Trash2 className="w-3 h-3" />
-                Clear All
+                <X className="w-5 h-5" />
               </button>
-            )}
-          </div>
 
-          <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-            Your saved semesters map. Calculate your absolute Cumulative GPA (CGPA) across your university career.
-          </p>
-
-          {/* List of saved semesters */}
-          <div className="flex-1 overflow-y-auto max-h-[160px] pr-1 mb-4 flex flex-col gap-2">
-            {savedSemesters.map((sem, index) => (
-              <div 
-                key={index} 
-                className="glass-input hover:border-gold-500/20 rounded-xl p-3 flex justify-between items-center text-xs transition-all duration-200"
-              >
-                <div className="flex flex-col">
-                  <span className="font-extrabold text-white">{sem.degreeName}</span>
-                  <span className="text-[10px] text-slate-400 font-medium">Year {sem.year} Sem {sem.semester} • {sem.credits} GPA Credits</span>
+              <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3 pr-8">
+                <Sparkles className="w-5 h-5 text-accent transition-accent" />
+                <div>
+                  <h3 className="text-base font-bold text-white">Select Elective Course</h3>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold mt-0.5">
+                    Year {activeElectiveSemester.year} Sem {activeElectiveSemester.semester}Pool
+                  </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <span className="font-extrabold text-gold-500 text-sm block">{sem.sgpa.toFixed(2)}</span>
-                    <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold block">SGPA</span>
-                  </div>
-                  <button
-                    onClick={() => removeSemesterFromRecord(index)}
-                    className="p-1 text-slate-500 hover:text-red-400 rounded-md transition-colors"
+              </div>
+
+              {/* Dynamic search query input */}
+              <div className="relative mb-5">
+                <input 
+                  type="text"
+                  placeholder="Search course code or name..."
+                  value={electiveSearch}
+                  onChange={(e) => setElectiveSearch(e.target.value)}
+                  className="w-full px-4 py-2.5 pl-10 text-xs font-bold text-white glass-input rounded-xl focus:ring-0 focus:outline-none"
+                />
+                <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+              </div>
+
+              {/* Elective Pools List */}
+              <div className="max-h-[250px] overflow-y-auto pr-1 flex flex-col gap-2">
+                {getFilteredElectives().map((course) => (
+                  <div 
+                    key={course.code}
+                    className="glass-input hover:border-accent/40 rounded-xl p-3.5 flex justify-between items-center text-xs group transition-accent"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-mono font-bold text-accent group-hover:text-accent-hover transition-accent">
+                        {course.code}
+                      </span>
+                      <span className="font-bold text-white text-xs">{course.name}</span>
+                      <span className="text-[10px] text-slate-400 font-semibold">{course.credits} Credits • {course.category}</span>
+                    </div>
+                    
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleAddElectiveToSemester(course)}
+                      className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-accent text-navy-950 hover:bg-accent-hover transition-accent shadow-accent-glow"
+                    >
+                      Add Course
+                    </motion.button>
+                  </div>
+                ))}
+
+                {getFilteredElectives().length === 0 && (
+                  <div className="text-center text-xs text-slate-500 py-10 font-bold flex flex-col items-center gap-2">
+                    <Info className="w-6 h-6 text-slate-600" />
+                    <span>No electives available matching search filter.</span>
+                  </div>
+                )}
               </div>
-            ))}
-
-            {savedSemesters.length === 0 && (
-              <div className="text-center text-xs text-slate-500 py-8 border border-dashed border-white/5 rounded-xl flex flex-col items-center justify-center gap-2">
-                <Save className="w-6 h-6 text-slate-600" />
-                <span>No semesters saved to your Academic Record yet.</span>
-                <span className="text-[10px] text-slate-600">Select grades and click "Save Sem" above to calculate your CGPA!</span>
-              </div>
-            )}
+            </motion.div>
           </div>
+        )}
+      </AnimatePresence>
 
-          {/* CGPA display */}
-          <div className="bg-navy-950/60 border border-white/5 rounded-xl p-4 flex justify-between items-center relative overflow-hidden">
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase tracking-widest font-extrabold block">Cumulative Career GPA</span>
-              <span className="text-xs text-gold-500/80 font-bold block">{cumulativeStats.totalCredits} GPA Credits Cumulative</span>
-            </div>
-            <div className="text-right">
-              <span className="text-3xl font-extrabold text-gold-400 tracking-tight gold-text-glow">
-                {cumulativeStats.cgpa.toFixed(2)}
-              </span>
-              <span className="text-[10px] block font-bold text-slate-500 uppercase tracking-wider">CGPA</span>
-            </div>
-          </div>
-        </div>
-
-      </section>
-
-      {/* --- TOAST SYSTEM --- */}
-      {showSavedToast && (
-        <div className="fixed bottom-6 right-6 glass-panel-heavy text-white px-5 py-3.5 rounded-xl border border-gold-500/20 shadow-gold-glow-lg flex items-center gap-3 z-50 animate-bounce">
-          <CheckCircle2 className="w-5 h-5 text-gold-500 shrink-0" />
-          <span className="text-xs font-bold tracking-wide">{toastMessage}</span>
-        </div>
-      )}
+      {/* --- SYSTEM CACHE CLEAR TOAST --- */}
+      <AnimatePresence>
+        {showClearToast && (
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            className="fixed bottom-6 right-6 glass-panel-heavy text-white px-5 py-3.5 rounded-xl border border-white/15 shadow-accent-glow-lg flex items-center gap-3 z-50"
+          >
+            <CheckCircle2 className="w-5 h-5 text-accent transition-accent shrink-0" />
+            <span className="text-xs font-bold tracking-wide">{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* --- FOOTER --- */}
-      <footer className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 text-center relative z-10">
-        <div className="border-t border-white/5 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs font-semibold text-slate-500">
+      <footer className="w-full max-w-none px-4 sm:px-6 md:px-12 mt-12 text-center relative z-10 print:mt-24">
+        <div className="border-t border-white/5 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs font-bold text-slate-500">
           <p>© {new Date().getFullYear()} SLTCGPA.CALCULATOR. All rights reserved.</p>
-          <p className="text-gold-500/60 font-serif italic text-sm tracking-wide">
-            "Non scholae sed vitae discimus"
-          </p>
-          <p>Designed for Sri Lanka Technology Campus</p>
+          <div className="flex flex-col items-center sm:items-end gap-1">
+            <p className="text-accent/60 font-serif italic text-sm tracking-wide transition-accent">
+              "Non scholae sed vitae discimus"
+            </p>
+            <p className="text-[10px] tracking-widest font-black uppercase text-slate-600">
+              Powered by <span className="text-white hover:text-accent transition-accent cursor-pointer">OSKA.TECH</span>
+            </p>
+          </div>
+          <p>Official Platform • Sri Lanka Technology Campus</p>
         </div>
       </footer>
+
     </div>
   );
 }
