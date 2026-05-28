@@ -440,10 +440,15 @@ export default function App() {
               <div className="absolute -inset-0.5 rounded-xl border border-white opacity-40"></div>
             </motion.div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white flex items-center gap-2">
-                SLTC<span className="text-accent font-extrabold text-lg sm:text-xl px-2 py-0.5 bg-accent/10 border border-accent/20 rounded-md transition-accent">GPA</span>.CALCULATOR
-              </h1>
-              <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">Sri Lanka Technology Campus • Academic Workspace v4.0</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                  SLTC<span className="text-accent font-extrabold text-lg sm:text-xl px-2 py-0.5 bg-accent/10 border border-accent/20 rounded-md transition-accent">GPA</span>.CALCULATOR
+                </h1>
+                <div className="px-2.5 py-1 rounded-full bg-accent/10 border border-accent/25 text-accent font-black uppercase tracking-widest text-[8px] transition-all shadow-accent-glow hover:bg-accent hover:text-navy-950">
+                  POWERED BY OSKA.TECH
+                </div>
+              </div>
+              <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">Sri Lanka Technology Campus • Academic Workspace v4.0</p>
             </div>
           </div>
 
@@ -893,9 +898,15 @@ export default function App() {
             <div className="glass-panel rounded-2xl p-6 border-white/10 shadow-glass overflow-hidden relative">
               <div className="absolute top-0 right-0 w-[150px] h-[150px] rounded-full bg-accent/5 blur-[50px] pointer-events-none -z-10 animate-pulse-gold"></div>
               
-              <div className="flex items-center gap-2 mb-6 border-b border-white/5 pb-3">
-                <TrendingUp className="w-5 h-5 text-accent transition-accent" />
-                <h3 className="text-base font-black text-white tracking-widest uppercase">Global Dashboard</h3>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-6 border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-accent transition-accent" />
+                  <h3 className="text-base font-black text-white tracking-widest uppercase">Global Dashboard</h3>
+                </div>
+                {/* Prominent side badge */}
+                <div className="self-start sm:self-auto px-2.5 py-0.5 rounded-full bg-accent/10 border border-accent/25 text-accent font-black uppercase tracking-widest text-[8px] transition-all shadow-accent-glow hover:bg-accent hover:text-navy-950">
+                  POWERED BY OSKA.TECH
+                </div>
               </div>
 
               {/* Master Circular ring and large digits */}
