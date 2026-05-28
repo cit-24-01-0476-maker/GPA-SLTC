@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   GraduationCap, 
@@ -26,8 +26,7 @@ import {
   Sun,
   Moon,
   ChevronDown,
-  ChevronUp,
-  Lock
+  ChevronUp
 } from 'lucide-react';
 import { useGpa } from './context/GpaContext';
 import { CURRICULUM_DATABASE, GRADING_SYSTEM, ELECTIVES_POOL } from './data/curriculum';
@@ -36,9 +35,10 @@ import { CURRICULUM_DATABASE, GRADING_SYSTEM, ELECTIVES_POOL } from './data/curr
 // Uses requestAnimationFrame for a premium GPU-accelerated numerical counter transition
 function RollingCount({ value }) {
   const [displayValue, setDisplayValue] = useState(0);
+  const displayValRef = useRef(0);
 
   useEffect(() => {
-    let start = displayValue;
+    let start = displayValRef.current;
     const end = parseFloat(value) || 0;
     if (start === end) return;
 
@@ -55,16 +55,19 @@ function RollingCount({ value }) {
       const easeOutQuad = 1 - (1 - progressPercentage) * (1 - progressPercentage);
       const current = start + range * easeOutQuad;
       
+      displayValRef.current = current;
       setDisplayValue(current);
 
       if (progressPercentage < 1) {
         requestAnimationFrame(animate);
       } else {
+        displayValRef.current = end;
         setDisplayValue(end);
       }
     };
 
-    requestAnimationFrame(animate);
+    const frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
   }, [value]);
 
   return <span>{displayValue.toFixed(2)}</span>;
@@ -75,6 +78,8 @@ export default function App() {
     selectedDegree,
     handleDegreeChange,
     openSemesters,
+    addSemesterCard,
+    removeSemesterCard,
     grades,
     setCourseGrade,
     addedElectives,
@@ -92,7 +97,11 @@ export default function App() {
   // Local state for Faculty Selection (Critical Premium Feature)
   const [selectedFaculty, setSelectedFaculty] = useState("computing");
 
-  // Workspace Filters (dynamic isolation)
+  // Local states for Semester Builder Picker (Dynamic Add Card Feature)
+  const [builderYear, setBuilderYear] = useState(1);
+  const [builderSem, setBuilderSem] = useState(1);
+
+  // Workspace Filters (dynamic card deck isolation)
   const [selectedYearFilter, setSelectedYearFilter] = useState("all");
   const [selectedSemFilter, setSelectedSemFilter] = useState("all");
 
@@ -125,7 +134,7 @@ export default function App() {
       list[`${sem.year}-${sem.semester}`] = true;
     });
     setExpandedSemesters(list);
-    triggerToast("All semesters expanded.");
+    triggerToast("All active semesters expanded.");
   };
 
   const collapseAllSemesters = () => {
@@ -134,7 +143,7 @@ export default function App() {
       list[`${sem.year}-${sem.semester}`] = false;
     });
     setExpandedSemesters(list);
-    triggerToast("All semesters collapsed.");
+    triggerToast("All active semesters collapsed.");
   };
 
   // Sync the context theme selection with document-level data attributes
@@ -146,27 +155,30 @@ export default function App() {
     document.body.setAttribute('data-light', isLightMode);
   }, [theme, isLightMode]);
 
-  // Handle fallback or filter bounds adjustments if degree changes
-  useEffect(() => {
-    if (selectedDegree === "software-engineering") {
-      handleDegreeChange("cyber-security");
-    }
-    
-    // Reset filters if they are out of bounds of the new degree duration
-    const maxYears = CURRICULUM_DATABASE[selectedDegree]?.durationYears || 4;
-    if (selectedYearFilter !== "all" && parseInt(selectedYearFilter) > maxYears) {
-      setSelectedYearFilter("all");
-    }
-  }, [selectedDegree, selectedYearFilter, handleDegreeChange]);
+
 
   const activeDegreeData = CURRICULUM_DATABASE[selectedDegree] || CURRICULUM_DATABASE["cyber-security"];
 
-  // Filter open semesters based on the year & semester filter selections
+  // Filter open semesters based on active workspace year/sem filters
   const filteredSemesters = openSemesters.filter(sem => {
     const matchesYear = selectedYearFilter === "all" || sem.year === parseInt(selectedYearFilter);
     const matchesSem = selectedSemFilter === "all" || sem.semester === parseInt(selectedSemFilter);
     return matchesYear && matchesSem;
   });
+
+  // Add individual Semester Card trigger
+  const handleAddSemesterCardClick = () => {
+    const exists = openSemesters.some(s => s.year === builderYear && s.semester === builderSem);
+    if (exists) {
+      triggerToast(`Year ${builderYear} Semester ${builderSem} is already on your board.`);
+      return;
+    }
+    addSemesterCard(builderYear, builderSem);
+    // Automatically expand the added card
+    const key = `${builderYear}-${builderSem}`;
+    setExpandedSemesters(prev => ({ ...prev, [key]: true }));
+    triggerToast(`Year ${builderYear} Semester ${builderSem} slot added.`);
+  };
 
   // --- ICON RESOLVER FOR DEGREES ---
   const getDegreeIcon = (id) => {
@@ -222,7 +234,7 @@ export default function App() {
   };
 
   // --- GLOBAL (FINAL) GPA CALCULATIONS ---
-  // Calculates points across all open semesters in the workspace, strictly ignoring NGPA courses
+  // Calculates points across all active semesters in the workspace, strictly ignoring NGPA courses
   const getGlobalCalculations = () => {
     let grandPoints = 0;
     let grandCredits = 0;
@@ -430,7 +442,7 @@ export default function App() {
       <header className="w-full max-w-none px-4 sm:px-6 md:px-12 pt-8 pb-4 print:hidden">
         <div className="glass-panel rounded-2xl px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 border-white/10 shadow-glass">
           
-          {/* Logo & Subtitle */}
+          {/* Logo & Subtitle with POWERED BY OSKA.TECH side badge */}
           <div className="flex items-center gap-4">
             <motion.div 
               whileHover={{ rotate: 15, scale: 1.05 }}
@@ -557,7 +569,16 @@ export default function App() {
                   <label className="block text-[9px] font-black uppercase tracking-widest text-accent transition-accent">Degree Program</label>
                   <select 
                     value={selectedDegree}
-                    onChange={(e) => handleDegreeChange(e.target.value)}
+                    onChange={(e) => {
+                      const newDegree = e.target.value;
+                      handleDegreeChange(newDegree);
+                      
+                      // Safely reset year and semester workspace filters to prevent out-of-bounds selections
+                      setSelectedYearFilter("all");
+                      setSelectedSemFilter("all");
+                      setBuilderYear(1);
+                      setBuilderSem(1);
+                    }}
                     className="bg-transparent border-0 font-extrabold text-white text-xs sm:text-sm focus:ring-0 focus:outline-none cursor-pointer p-0 w-full"
                   >
                     {Object.entries(CURRICULUM_DATABASE).map(([key, value]) => {
@@ -594,6 +615,55 @@ export default function App() {
               >
                 Collapse All
               </button>
+            </div>
+          </div>
+
+          {/* DYNAMIC SEMESTER WORKSPACE BUILDER (CRITICAL NEW FEATURE) */}
+          <div className="glass-panel rounded-2xl p-5 border-white/10 shadow-glass flex flex-col md:flex-row justify-between items-center gap-5 print:hidden">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-accent/10 border border-accent/20 text-accent transition-accent">
+                <Plus className="w-5 h-5 animate-pulse-gold" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white uppercase tracking-wider">Semester Workspace Builder</h3>
+                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Customize your deck by appending semester cards individually.</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+              {/* Year select dropdown */}
+              <div className="glass-input rounded-xl px-3 py-2 flex-1 md:flex-none">
+                <select 
+                  value={builderYear} 
+                  onChange={(e) => setBuilderYear(parseInt(e.target.value))}
+                  className="bg-transparent border-0 font-extrabold text-white text-xs focus:ring-0 focus:outline-none cursor-pointer p-0 w-full"
+                >
+                  {Array.from({ length: activeDegreeData.durationYears || 4 }, (_, idx) => idx + 1).map(yr => (
+                    <option key={yr} value={yr} className="bg-navy-950 text-white font-semibold">Year {yr}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Semester select dropdown */}
+              <div className="glass-input rounded-xl px-3 py-2 flex-1 md:flex-none">
+                <select 
+                  value={builderSem} 
+                  onChange={(e) => setBuilderSem(parseInt(e.target.value))}
+                  className="bg-transparent border-0 font-extrabold text-white text-xs focus:ring-0 focus:outline-none cursor-pointer p-0 w-full"
+                >
+                  <option value={1} className="bg-navy-950 text-white font-semibold">Semester 1</option>
+                  <option value={2} className="bg-navy-950 text-white font-semibold">Semester 2</option>
+                </select>
+              </div>
+
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handleAddSemesterCardClick}
+                className="px-4.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-accent text-navy-950 hover:bg-accent-hover transition-all shadow-accent-glow flex items-center justify-center gap-1.5 shrink-0 w-full md:w-auto"
+              >
+                <Plus className="w-4 h-4 shrink-0" />
+                Add Semester Card
+              </motion.button>
             </div>
           </div>
 
@@ -719,6 +789,22 @@ export default function App() {
                             SGPA: {stats.sgpa.toFixed(2)}
                           </span>
                         </div>
+
+                        {/* Delete Card Button */}
+                        <motion.button 
+                          whileTap={{ scale: 0.9 }}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Avoid toggling accordion
+                            if (window.confirm(`Are you sure you want to remove Year ${sem.year} Semester ${sem.semester} card from your active board?`)) {
+                              removeSemesterCard(sem.year, sem.semester);
+                              triggerToast(`Year ${sem.year} Semester ${sem.semester} card removed.`);
+                            }
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition-colors"
+                          title="Remove this semester card from active board"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </motion.button>
 
                         {/* Accordion Toggle Icon */}
                         <div className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 transition-colors">
@@ -874,7 +960,7 @@ export default function App() {
                 );
               })}
 
-              {filteredSemesters.length === 0 && (
+              {filteredSemesters.length === 0 && openSemesters.length > 0 && (
                 <div className="glass-panel rounded-2xl p-10 text-center text-slate-400 border-white/10 shadow-glass flex flex-col items-center gap-3">
                   <Info className="w-8 h-8 text-accent animate-bounce-light" />
                   <p className="font-extrabold text-sm uppercase tracking-wide">No Semesters Match Current Workspace Filters</p>
@@ -884,6 +970,16 @@ export default function App() {
                   >
                     Reset Workspace Filters
                   </button>
+                </div>
+              )}
+
+              {openSemesters.length === 0 && (
+                <div className="glass-panel rounded-2xl p-12 text-center text-slate-400 border-white/10 shadow-glass flex flex-col items-center gap-4">
+                  <Sparkles className="w-10 h-10 text-accent animate-bounce-light" />
+                  <h4 className="text-base font-black text-white uppercase tracking-widest">Workspace is Empty</h4>
+                  <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
+                    Build your academic calculator workspace! Use the Semester Builder above to add individual semester cards to your active board.
+                  </p>
                 </div>
               )}
             </AnimatePresence>
