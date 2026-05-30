@@ -1,49 +1,83 @@
 <div align="center">
 
-  # 🎓 SLTC GPA CALCULATOR
-  
-  **The Ultimate Academic Workspace for Sri Lanka Technology Campus (SLTC)** *Non scholae sed vitae discimus*
+  <img src="./readme.jpg" alt="SLTC GPA Calculator UI Showcase" width="100%" />
 
-  [![UI Showcase](./screenshot.jpg)](https://your-live-website-link.com)
-
-  ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-  ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
-  ![Framer Motion](https://img.shields.io/badge/Framer_Motion-black?style=for-the-badge&logo=framer&logoColor=blue)
-  
   <br />
+  <br />
+
+  # 🎓 SLTC GPA CALCULATOR : THE ACADEMIC WORKSPACE
+  
+  ***"Non scholae sed vitae discimus"***
+
+  <p align="center">
+    A next-generation, zero-data-entry GPA tracking engine designed exclusively for the Faculty of Computing and IT at Sri Lanka Technology Campus (SLTC).
+  </p>
+
+  <p align="center">
+    <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
+    <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="TailwindCSS" />
+    <img src="https://img.shields.io/badge/Framer_Motion-black?style=for-the-badge&logo=framer&logoColor=blue" alt="Framer Motion" />
+    <img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge" alt="Status" />
+  </p>
+
   <b>POWERED BY OSKA.TECH</b>
 </div>
 
-## 🚀 Overview
+---
 
-The **SLTC GPA Calculator** is a highly advanced, next-generation web application designed specifically for SLTC students. It completely eliminates manual data entry by pre-loading the exact SLTC May 2024 curriculum. Students simply select their faculty, degree program, and current semesters to instantly generate a comprehensive academic workspace.
+## 📑 Table of Contents
+- [About the Project](#-about-the-project)
+- [Next-Level Features](#-next-level-features)
+- [Supported Curriculums](#-supported-curriculums)
+- [Tech Stack & Architecture](#-tech-stack--architecture)
+- [Getting Started](#-getting-started)
+- [Contributing](#-contributing)
 
-## ✨ Key Features
+---
 
-- **🧠 Auto-Curriculum Loading:** No need to type module names or credits. The app automatically fetches Core modules and Electives based on your Degree, Year, and Semester.
-- **⚡ Real-Time Calculations:** Instantly calculates SGPA (Semester GPA), YGPA (Yearly Cumulative), and the all-important FGPA (Final GPA).
-- **🎨 Next-Level UI/UX:** Premium Glassmorphism design with a dynamic dark mode, moving gradients, and customizable theme accents (Gold, Neon, Blue).
-- **🧮 NGPA Smart Logic:** Automatically excludes Non-GPA modules (like Industrial Training) from credit and GPA calculations as per SLTC guidelines.
-- **🗂️ Global Dashboard:** A sticky workspace tracker that shows total points earned, total credits, and modules graded at a glance.
-- **📄 Export to PDF:** Download your full academic result sheet with a single click.
+## 🚀 About the Project
 
-## 📚 Supported Degree Programs
+Most GPA calculators require students to manually type out module names, credit values, and search for their grades. The **SLTC GPA Calculator** revolutionizes this process. 
 
-Currently fully configured for the **Faculty of Computing and IT**:
-- BSc Hons in Software Engineering
-- BSc Hons in Cyber Security
-- BSc Hons in Cloud Computing
-- BSc Hons in Data Science
-- Degree in Applied Information Technology
+By hardcoding the official **May 2024 SLTC Curriculum**, this app acts as a complete "Academic Workspace." Students simply select their Degree and Semester, and the app instantly builds out their exact module dashboard. From there, it calculates the Semester GPA (SGPA), Yearly Cumulative GPA (YGPA), and the Final GPA (FGPA) in real-time.
 
-## 🛠️ Tech Stack
+## ✨ Next-Level Features
 
-- **Frontend:** React.js
-- **Styling:** Tailwind CSS (Glassmorphism UI)
-- **Animations:** Framer Motion
-- **Icons:** Lucide React
+* **🧠 Smart Curriculum Engine:** Auto-populates Core modules and handles Elective pools accurately based on the specific degree and year.
+* **⚡ Real-Time Analytics:** The "Global Dashboard" recalculates your FGPA, YGPA, Total Credits, and Points instantly as you select a grade.
+* **🧮 NGPA Awareness Logic:** Built-in intelligence to detect Non-GPA modules (e.g., Industrial Training) and strictly exclude them from the mathematical divisor, ensuring 100% accurate results.
+* **🎨 Premium Glassmorphism UI:** A sleek, modern, translucent design system featuring dynamic moving gradients, hover micro-interactions, and multiple theme accents (Gold, Neon, Blue).
+* **🗂️ Multi-Semester Workspace:** Expand all 8 semesters (4 years) on a single screen to map out your entire degree journey at a glance.
+* **📄 One-Click Export:** Download a beautifully formatted PDF of your full academic result sheet.
 
-## 💻 How to Run Locally
+## 📚 Supported Curriculums
+
+This workspace is fully calibrated for the **Faculty of Computing and IT** (Based on the updated May 2024 syllabus):
+
+* `[ BSc Hons ]` Software Engineering
+* `[ BSc Hons ]` Cyber Security
+* `[ BSc Hons ]` Cloud Computing
+* `[ BSc Hons ]` Data Science
+* `[ Degree ]` Applied Information Technology (3-Year)
+
+*(Note: Other faculties like Engineering and Business are intentionally disabled in the UI to maintain strict accuracy with IT faculty rules).*
+
+## 🛠️ Tech Stack & Architecture
+
+* **Frontend Framework:** React.js (Hooks, Context API for global state management)
+* **Styling Engine:** Tailwind CSS
+* **Animations:** Framer Motion (Smooth layout transitions and number counting algorithms)
+* **Icons:** Lucide React
+* **Data Structure:** Highly scalable JSON architecture separating Core modules and Elective pools.
+
+## 💻 Getting Started
+
+To run this project locally and explore the workspace:
+
+### Prerequisites
+Make sure you have Node.js and npm installed.
+
+### Installation
 
 1. Clone the repository:
    ```bash
