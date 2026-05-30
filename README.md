@@ -1,16 +1,50 @@
-# React + Vite
+<div align="center">
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+  # 🎓 SLTC GPA CALCULATOR
+  
+  **The Ultimate Academic Workspace for Sri Lanka Technology Campus (SLTC)** *Non scholae sed vitae discimus*
 
-Currently, two official plugins are available:
+  [![UI Showcase](./screenshot.jpg)](https://your-live-website-link.com)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+  ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+  ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+  ![Framer Motion](https://img.shields.io/badge/Framer_Motion-black?style=for-the-badge&logo=framer&logoColor=blue)
+  
+  <br />
+  <b>POWERED BY OSKA.TECH</b>
+</div>
 
-## React Compiler
+## 🚀 Overview
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The **SLTC GPA Calculator** is a highly advanced, next-generation web application designed specifically for SLTC students. It completely eliminates manual data entry by pre-loading the exact SLTC May 2024 curriculum. Students simply select their faculty, degree program, and current semesters to instantly generate a comprehensive academic workspace.
 
-## Expanding the ESLint configuration
+## ✨ Key Features
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **🧠 Auto-Curriculum Loading:** No need to type module names or credits. The app automatically fetches Core modules and Electives based on your Degree, Year, and Semester.
+- **⚡ Real-Time Calculations:** Instantly calculates SGPA (Semester GPA), YGPA (Yearly Cumulative), and the all-important FGPA (Final GPA).
+- **🎨 Next-Level UI/UX:** Premium Glassmorphism design with a dynamic dark mode, moving gradients, and customizable theme accents (Gold, Neon, Blue).
+- **🧮 NGPA Smart Logic:** Automatically excludes Non-GPA modules (like Industrial Training) from credit and GPA calculations as per SLTC guidelines.
+- **🗂️ Global Dashboard:** A sticky workspace tracker that shows total points earned, total credits, and modules graded at a glance.
+- **📄 Export to PDF:** Download your full academic result sheet with a single click.
+
+## 📚 Supported Degree Programs
+
+Currently fully configured for the **Faculty of Computing and IT**:
+- BSc Hons in Software Engineering
+- BSc Hons in Cyber Security
+- BSc Hons in Cloud Computing
+- BSc Hons in Data Science
+- Degree in Applied Information Technology
+
+## 🛠️ Tech Stack
+
+- **Frontend:** React.js
+- **Styling:** Tailwind CSS (Glassmorphism UI)
+- **Animations:** Framer Motion
+- **Icons:** Lucide React
+
+## 💻 How to Run Locally
+
+1. Clone the repository:
+   ```bash
+   git clone [https://github.com/yourusername/sltc-gpa-calculator.git](https://github.com/yourusername/sltc-gpa-calculator.git)
