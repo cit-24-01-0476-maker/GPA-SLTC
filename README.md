@@ -45,7 +45,7 @@ By hardcoding the official **May 2024 SLTC Curriculum**, this app acts as a comp
 
 * **🧠 Smart Curriculum Engine:** Auto-populates Core modules and handles Elective pools accurately based on the specific degree and year.
 * **⚡ Real-Time Analytics:** The "Global Dashboard" recalculates your FGPA, YGPA, Total Credits, and Points instantly as you select a grade.
-* **🧮 NGPA Awareness Logic:** Built-in intelligence to detect Non-GPA modules (e.g., Industrial Training) and strictly exclude them from the mathematical divisor, ensuring 100% accurate results.
+* **🧮 NGPA Awareness Logic:** Built-in intelligence to detect Non-GPA modules (e.g., Industrial Training) and strictly exclude them from the mathematical divisor, so they do not contribute to the GPA divisor.
 * **🎨 Premium Glassmorphism UI:** A sleek, modern, translucent design system featuring dynamic moving gradients, hover micro-interactions, and multiple theme accents (Gold, Neon, Blue).
 * **🗂️ Multi-Semester Workspace:** Expand all 8 semesters (4 years) on a single screen to map out your entire degree journey at a glance.
 * **📄 One-Click Export:** Download a beautifully formatted PDF of your full academic result sheet.
@@ -79,6 +79,27 @@ Make sure you have Node.js and npm installed.
 
 ### Installation
 
-1. Clone the repository:
-   ```bash
-   git clone [https://github.com/yourusername/sltc-gpa-calculator.git](https://github.com/yourusername/sltc-gpa-calculator.git)
+```bash
+git clone https://github.com/cit-24-01-0476-maker/GPA-SLTC.git
+cd GPA-SLTC
+npm ci
+npm run dev
+```
+
+Open the local address printed by Vite.
+
+### Build and checks
+
+```bash
+npm run build
+npm run lint
+npm run preview
+```
+
+## Contributing
+
+Open an issue with the affected degree, semester, credits and expected result. For curriculum corrections, include a source and avoid posting student personal data.
+
+## Calculation scope
+
+The module data follows the May 2024 Computing and IT curriculum described above. Check results against your current curriculum and official academic records; this project is an independent student tool.
